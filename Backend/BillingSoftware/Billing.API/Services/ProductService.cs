@@ -93,4 +93,44 @@ public class ProductService
 
         await _context.SaveChangesAsync();
     }
+    public async Task<PagedResult<ProductDto>> SearchAsync(ProductSearchRequest request)
+    {
+        var query = _context.Products
+            .Where(x => !x.IsDeleted);
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            string search = request.Search.Trim();
+
+            query = query.Where(x =>
+                x.Name.Contains(search) ||
+                x.SKU.Contains(search));
+        }
+
+        int totalRecords = await query.CountAsync();
+
+        var products = await query
+            .OrderBy(x => x.Name)
+            .Skip((request.PageNumber - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .Select(x => new ProductDto
+            {
+                Id = x.Id,
+                Name = x.Name,
+                SKU = x.SKU,
+                PurchasePrice = x.PurchasePrice,
+                SellingPrice = x.SellingPrice,
+                Stock = x.Stock
+            })
+            .ToListAsync();
+
+        return new PagedResult<ProductDto>
+        {
+            TotalRecords = totalRecords,
+            TotalPages = (int)Math.Ceiling((double)totalRecords / request.PageSize),
+            PageNumber = request.PageNumber,
+            PageSize = request.PageSize,
+            Data = products
+        };
+    }
 }

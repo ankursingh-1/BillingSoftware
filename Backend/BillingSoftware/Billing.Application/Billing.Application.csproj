@@ -11,7 +11,8 @@
     <Folder Include="Features\Authentication\DTOs\" />
     <Folder Include="Features\Authentication\Services\" />
     <Folder Include="Features\Products\DTOs\" />
-    <Folder Include="Features\Products\Queries\" />
+    <Folder Include="Features\Products\Queries\GetProductById\" />
+    <Folder Include="Features\Products\Queries\GetProducts\" />
     <Folder Include="Interfaces\" />
     <Folder Include="Behaviors\" />
     <Folder Include="Exceptions\" />

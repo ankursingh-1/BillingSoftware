@@ -77,4 +77,11 @@ public class ProductsController : ControllerBase
             Message = "Product deleted successfully."
         });
     }
+    [HttpPost("search")]
+    public async Task<IActionResult> Search(ProductSearchRequest request)
+    {
+        var result = await _service.SearchAsync(request);
+
+        return Ok(result);
+    }
 }
