@@ -16,6 +16,7 @@ namespace Billing.Persistence.Context
         }
         public DbSet<Product> Products => Set <Product>();
         public DbSet<Customer> Customers => Set<Customer>();
+        public DbSet<Supplier> Suppliers => Set<Supplier>();
         public DbSet<User> Users => Set<User>();
         public DbSet<Role> Roles => Set<Role>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
