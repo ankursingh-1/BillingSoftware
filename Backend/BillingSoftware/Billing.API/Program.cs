@@ -18,6 +18,7 @@ builder.Services.AddApplication();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<PasswordService>();
 builder.Services.AddScoped<ProductService>();
+builder.Services.AddScoped<CustomerService>();
 
 var jwt = builder.Configuration.GetSection("JwtSettings");
 
