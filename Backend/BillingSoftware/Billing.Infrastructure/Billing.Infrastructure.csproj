@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Billing.Application\Billing.Application.csproj" />
     <ProjectReference Include="..\Billing.Domain\Billing.Domain.csproj" />
+    <ProjectReference Include="..\Billing.Persistence\Billing.Persistence.csproj" />
   </ItemGroup>
 
 </Project>

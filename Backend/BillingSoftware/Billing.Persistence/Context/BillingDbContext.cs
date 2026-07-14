@@ -18,6 +18,8 @@ namespace Billing.Persistence.Context
         public DbSet<Customer> Customers => Set<Customer>();
         public DbSet<Supplier> Suppliers => Set<Supplier>();
         public DbSet<Purchase> Purchases => Set<Purchase>();
+        public DbSet<Sale> Sales => Set<Sale>();
+        public DbSet<SaleItem> SaleItems => Set<SaleItem>();
         public DbSet<PurchaseItem> PurchaseItems => Set<PurchaseItem>();
         public DbSet<User> Users => Set<User>();
         public DbSet<Role> Roles => Set<Role>();

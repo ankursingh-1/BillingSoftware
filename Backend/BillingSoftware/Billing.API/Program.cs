@@ -1,13 +1,15 @@
 using Billing.API.Extensions;
+using Billing.API.Services;
 using Billing.Application;
+using Billing.Application.Interfaces;
 using Billing.Infrastructure.Security;
+using Billing.Infrastructure.Services;
+using Billing.Persistence.Context;
 using Billing.Persistence.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Billing.Persistence.Context;
 using Microsoft.OpenApi.Models;
-using Billing.API.Services;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +23,7 @@ builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<CustomerService>();
 builder.Services.AddScoped<SupplierService>();
 builder.Services.AddScoped<PurchaseService>();
+builder.Services.AddScoped<SaleService>();
 
 var jwt = builder.Configuration.GetSection("JwtSettings");
 

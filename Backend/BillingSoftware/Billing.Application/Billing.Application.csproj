@@ -13,7 +13,6 @@
     <Folder Include="Features\Products\DTOs\" />
     <Folder Include="Features\Products\Queries\GetProductById\" />
     <Folder Include="Features\Products\Queries\GetProducts\" />
-    <Folder Include="Interfaces\" />
     <Folder Include="Behaviors\" />
     <Folder Include="Exceptions\" />
     <Folder Include="Mappings\" />
