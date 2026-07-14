@@ -20,6 +20,7 @@ builder.Services.AddScoped<PasswordService>();
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<CustomerService>();
 builder.Services.AddScoped<SupplierService>();
+builder.Services.AddScoped<PurchaseService>();
 
 var jwt = builder.Configuration.GetSection("JwtSettings");
 
