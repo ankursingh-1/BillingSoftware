@@ -25,6 +25,7 @@ builder.Services.AddScoped<SupplierService>();
 builder.Services.AddScoped<PurchaseService>();
 builder.Services.AddScoped<SaleService>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<ReportService>();
 
 var jwt = builder.Configuration.GetSection("JwtSettings");
 
