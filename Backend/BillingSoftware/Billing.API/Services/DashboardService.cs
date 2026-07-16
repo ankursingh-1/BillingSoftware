@@ -158,4 +158,68 @@ public class DashboardService
             .Take(count)
             .ToListAsync();
     }
+    public async Task<List<ChartPointDto>> GetSalesChartAsync(int days = 7)
+    {
+        var startDate = DateTime.Today.AddDays(-(days - 1));
+
+        var sales = await _context.Sales
+            .AsNoTracking()
+            .Where(x => x.SaleDate.Date >= startDate)
+            .GroupBy(x => x.SaleDate.Date)
+            .Select(g => new
+            {
+                Date = g.Key,
+                Amount = g.Sum(x => x.TotalAmount)
+            })
+            .ToListAsync();
+
+        var result = new List<ChartPointDto>();
+
+        for (int i = 0; i < days; i++)
+        {
+            var currentDate = startDate.AddDays(i);
+
+            var daySale = sales.FirstOrDefault(x => x.Date == currentDate);
+
+            result.Add(new ChartPointDto
+            {
+                Label = currentDate.ToString("dd MMM"),
+                Value = daySale?.Amount ?? 0
+            });
+        }
+
+        return result;
+    }
+    public async Task<List<ChartPointDto>> GetPurchaseChartAsync(int days = 7)
+    {
+        var startDate = DateTime.Today.AddDays(-(days - 1));
+
+        var purchases = await _context.Purchases
+            .AsNoTracking()
+            .Where(x => x.PurchaseDate.Date >= startDate)
+            .GroupBy(x => x.PurchaseDate.Date)
+            .Select(g => new
+            {
+                Date = g.Key,
+                Amount = g.Sum(x => x.TotalAmount)
+            })
+            .ToListAsync();
+
+        var result = new List<ChartPointDto>();
+
+        for (int i = 0; i < days; i++)
+        {
+            var currentDate = startDate.AddDays(i);
+
+            var dayPurchase = purchases.FirstOrDefault(x => x.Date == currentDate);
+
+            result.Add(new ChartPointDto
+            {
+                Label = currentDate.ToString("dd MMM"),
+                Value = dayPurchase?.Amount ?? 0
+            });
+        }
+
+        return result;
+    }
 }

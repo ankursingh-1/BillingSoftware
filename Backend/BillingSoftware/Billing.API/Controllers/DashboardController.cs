@@ -47,10 +47,27 @@ public class DashboardController : ControllerBase
 
         return Ok(result);
     }
+
     [HttpGet("top-products")]
     public async Task<IActionResult> GetTopProducts()
     {
         var result = await _dashboardService.GetTopSellingProductsAsync();
+
+        return Ok(result);
+    }
+
+    [HttpGet("sales-chart")]
+    public async Task<IActionResult> GetSalesChart([FromQuery] int days = 7)
+    {
+        var result = await _dashboardService.GetSalesChartAsync(days);
+
+        return Ok(result);
+    }
+
+    [HttpGet("purchase-chart")]
+    public async Task<IActionResult> GetPurchaseChart([FromQuery] int days = 7)
+    {
+        var result = await _dashboardService.GetPurchaseChartAsync(days);
 
         return Ok(result);
     }
