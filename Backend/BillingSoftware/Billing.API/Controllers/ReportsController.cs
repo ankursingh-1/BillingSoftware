@@ -24,4 +24,20 @@ public class ReportsController : ControllerBase
 
         return Ok(result);
     }
+
+    [HttpPost("purchases")]
+    public async Task<IActionResult> GetPurchaseReport([FromBody] PurchaseReportRequest request)
+    {
+        var result = await _reportService.GetPurchaseReportAsync(request);
+
+        return Ok(result);
+    }
+
+    [HttpPost("stock")]
+    public async Task<IActionResult> GetStockReport([FromBody] StockReportRequest request)
+    {
+        var result = await _reportService.GetStockReportAsync(request);
+
+        return Ok(result);
+    }
 }
