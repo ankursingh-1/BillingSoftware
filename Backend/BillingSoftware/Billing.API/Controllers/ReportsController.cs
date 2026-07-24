@@ -2,6 +2,7 @@
 using Billing.Application.DTOs.Reports;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 namespace Billing.API.Controllers;
 
@@ -33,11 +34,21 @@ public class ReportsController : ControllerBase
         return Ok(result);
     }
 
-    [HttpPost("stock")]
+    [HttpPost("stock")] 
     public async Task<IActionResult> GetStockReport([FromBody] StockReportRequest request)
     {
         var result = await _reportService.GetStockReportAsync(request);
 
         return Ok(result);
     }
+
+    [HttpPost("profit")]
+    public async Task<IActionResult> GetProfitReport([FromBody] ProfitReportRequest request)
+    {
+        var result = await _reportService.GetProfitReportAsync(request);
+
+        return Ok(result);
+    }
+
+    
 }

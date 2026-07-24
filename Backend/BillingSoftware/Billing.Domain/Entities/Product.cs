@@ -14,5 +14,9 @@ namespace Billing.Domain.Entities
         public decimal PurchasePrice { get; set; }
         public decimal SellingPrice { get; set; }
         public int Stock { get; set; }
+        public int? CategoryId { get; set; }
+        public Category? Category { get; set; }
+        public int? BrandId { get; set; }
+        public Brand? Brand { get; set; }
     }
 }

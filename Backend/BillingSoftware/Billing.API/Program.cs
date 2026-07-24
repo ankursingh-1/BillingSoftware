@@ -3,7 +3,6 @@ using Billing.API.Services;
 using Billing.Application;
 using Billing.Application.Interfaces;
 using Billing.Infrastructure.Security;
-using Billing.Infrastructure.Services;
 using Billing.Persistence.Context;
 using Billing.Persistence.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -26,6 +25,13 @@ builder.Services.AddScoped<PurchaseService>();
 builder.Services.AddScoped<SaleService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ReportService>();
+builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
+builder.Services.AddScoped<CategoryService>();
+builder.Services.AddScoped<IPdfExportService, PdfExportService>();
+builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
+builder.Services.AddScoped<ICompanyService, CompanyService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IBrandService, BrandService>();
 
 var jwt = builder.Configuration.GetSection("JwtSettings");
 
@@ -49,9 +55,7 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
-
 builder.Services.AddControllers();
-
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(options =>

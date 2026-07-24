@@ -32,10 +32,10 @@ namespace Billing.API.Middlewares
                 var response = new ApiErrorResponse
                 {
                     Message = "An unexpected error occurred.",
-                    Errors = new List<string>
-                {
-                    ex.Message
-                }
+                        Errors = new List<string>
+                    {
+                        ex.Message
+                    }
                 };
 
                 await context.Response.WriteAsync(

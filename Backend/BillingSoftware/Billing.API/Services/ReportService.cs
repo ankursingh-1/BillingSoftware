@@ -171,4 +171,62 @@ public class ReportService
             Items = items
         };
     }
+
+    public async Task<ProfitReportResponse> GetProfitReportAsync(ProfitReportRequest request)
+    {
+        var query = _context.Sales
+            .Include(x => x.SaleItems)
+                .ThenInclude(x => x.Product)
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (request.FromDate.HasValue)
+        {
+            query = query.Where(x => x.SaleDate.Date >= request.FromDate.Value.Date);
+        }
+
+        if (request.ToDate.HasValue)
+        {
+            query = query.Where(x => x.SaleDate.Date <= request.ToDate.Value.Date);
+        }
+
+        var sales = await query.ToListAsync();
+
+        var items = sales.Select(sale =>
+        {
+            decimal purchaseCost = sale.SaleItems.Sum(x => x.Quantity * x.Product.PurchasePrice);
+
+            decimal saleAmount = sale.TotalAmount;
+
+            decimal profit = saleAmount - purchaseCost;
+
+            return new ProfitReportItemDto
+            {
+                InvoiceNumber = sale.InvoiceNumber,
+                SaleDate = sale.SaleDate,
+                SaleAmount = saleAmount,
+                PurchaseCost = purchaseCost,
+                Profit = profit
+            };
+        }).ToList();
+
+        decimal totalSales = items.Sum(x => x.SaleAmount);
+
+        decimal totalPurchaseCost = items.Sum(x => x.PurchaseCost);
+
+        decimal grossProfit = totalSales - totalPurchaseCost;
+
+        decimal profitPercentage = totalPurchaseCost == 0
+            ? 0
+            : (grossProfit / totalPurchaseCost) * 100;
+
+        return new ProfitReportResponse
+        {
+            TotalSales = totalSales,
+            TotalPurchaseCost = totalPurchaseCost,
+            GrossProfit = grossProfit,
+            ProfitPercentage = Math.Round(profitPercentage, 2),
+            Items = items
+        };
+    }
 }

@@ -25,7 +25,10 @@ public class ProductService
             SKU = dto.SKU,
             PurchasePrice = dto.PurchasePrice,
             SellingPrice = dto.SellingPrice,
-            Stock = dto.Stock
+            Stock = dto.Stock,
+            CategoryId = dto.CategoryId,
+            BrandId = dto.BrandId
+
         };
 
         _context.Products.Add(product);
@@ -38,15 +41,23 @@ public class ProductService
     public async Task<List<ProductDto>> GetAllAsync()
     {
         return await _context.Products
+            .Include(x => x.Category)
+            .Include(x => x.Brand)
             .Where(x => !x.IsDeleted)
             .OrderBy(x => x.Name)
             .Select(x => new ProductDto
             {
+                Id = x.Id,
                 Name = x.Name,
                 SKU = x.SKU,
                 PurchasePrice = x.PurchasePrice,
                 SellingPrice = x.SellingPrice,
-                Stock = x.Stock
+                Stock = x.Stock,
+                CategoryId = x.CategoryId,
+                CategoryName = x.Category != null ? x.Category.Name : null,
+
+                BrandId = x.BrandId,
+                BrandName = x.Brand != null ? x.Brand.Name : null
             })
             .ToListAsync();
     }
@@ -54,20 +65,35 @@ public class ProductService
     public async Task<ProductDto?> GetByIdAsync(int id)
     {
         return await _context.Products
+            .Include(x => x.Category)
+            .Include(x => x.Brand)
             .Where(x => x.Id == id && !x.IsDeleted)
             .Select(x => new ProductDto
             {
+                Id = x.Id,
                 Name = x.Name,
                 SKU = x.SKU,
                 PurchasePrice = x.PurchasePrice,
                 SellingPrice = x.SellingPrice,
-                Stock = x.Stock
+                Stock = x.Stock,
+                CategoryId = x.CategoryId,
+                CategoryName = x.Category != null ? x.Category.Name : null,
+                BrandId = x.BrandId,
+                BrandName = x.Brand != null ? x.Brand.Name : null
             })
             .FirstOrDefaultAsync();
     }
 
     public async Task UpdateAsync(int id, ProductDto dto)
     {
+        if (await _context.Products.AnyAsync(x =>
+            x.Id != id &&
+            x.SKU == dto.SKU &&
+            !x.IsDeleted))
+        {
+            throw new Exception("SKU already exists.");
+        }
+
         var product = await _context.Products.FindAsync(id);
 
         if (product == null || product.IsDeleted)
@@ -78,6 +104,8 @@ public class ProductService
         product.PurchasePrice = dto.PurchasePrice;
         product.SellingPrice = dto.SellingPrice;
         product.Stock = dto.Stock;
+        product.CategoryId = dto.CategoryId;
+        product.BrandId = dto.BrandId;
 
         await _context.SaveChangesAsync();
     }
@@ -96,6 +124,8 @@ public class ProductService
     public async Task<PagedResult<ProductDto>> SearchAsync(ProductSearchRequest request)
     {
         var query = _context.Products
+            .Include(x => x.Category)
+            .Include(x => x.Brand)
             .Where(x => !x.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(request.Search))
@@ -120,7 +150,11 @@ public class ProductService
                 SKU = x.SKU,
                 PurchasePrice = x.PurchasePrice,
                 SellingPrice = x.SellingPrice,
-                Stock = x.Stock
+                Stock = x.Stock,
+                CategoryId = x.CategoryId,
+                CategoryName = x.Category != null ? x.Category.Name : null,
+                BrandId = x.BrandId,
+                BrandName = x.Brand != null ? x.Brand.Name : null
             })
             .ToListAsync();
 

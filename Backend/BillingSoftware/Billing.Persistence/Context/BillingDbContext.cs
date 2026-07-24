@@ -23,6 +23,10 @@ namespace Billing.Persistence.Context
         public DbSet<PurchaseItem> PurchaseItems => Set<PurchaseItem>();
         public DbSet<User> Users => Set<User>();
         public DbSet<Role> Roles => Set<Role>();
+        public DbSet<Category> Categories => Set<Category>();
+        public DbSet<Company> Companies => Set<Company>();
+        public DbSet<Brand> Brands => Set<Brand>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
