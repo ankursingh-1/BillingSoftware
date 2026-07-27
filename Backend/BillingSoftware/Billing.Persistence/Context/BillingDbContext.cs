@@ -1,10 +1,11 @@
-﻿using System;
+﻿using Billing.Domain.Entities;
+using Billing.Persistence.Configurations;
+using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Billing.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
 
 namespace Billing.Persistence.Context
 {
@@ -26,12 +27,16 @@ namespace Billing.Persistence.Context
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<Company> Companies => Set<Company>();
         public DbSet<Brand> Brands => Set<Brand>();
+        public DbSet<Unit> Units => Set<Unit>();
+        public DbSet<Tax> Taxes => Set<Tax>();
+        public DbSet<StockLedger> StockLedgers => Set<StockLedger>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(BillingDbContext).Assembly);
+            modelBuilder.ApplyConfiguration(new StockLedgerConfiguration());
         }
     }
 

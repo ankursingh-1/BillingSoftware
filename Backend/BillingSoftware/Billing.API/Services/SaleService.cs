@@ -2,16 +2,22 @@
 using Billing.Domain.Entities;
 using Billing.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
+using Billing.Application.Interfaces;
+using Billing.Domain.Enums;
 
 namespace Billing.API.Services;
 
 public class SaleService
 {
     private readonly BillingDbContext _context;
+    private readonly IInventoryService _inventoryService;
 
-    public SaleService(BillingDbContext context)
+    public SaleService(
+    BillingDbContext context,
+    IInventoryService inventoryService)
     {
         _context = context;
+        _inventoryService = inventoryService;
     }
 
     public async Task<int> CreateAsync(CreateSaleRequest dto)
@@ -61,17 +67,18 @@ public class SaleService
 
                 _context.SaleItems.Add(saleItem);
 
-                product.Stock -= item.Quantity;
+                await _inventoryService.AdjustStockAsync(
+                    product.Id,
+                    item.Quantity,
+                    StockTransactionType.Sale,
+                    sale.InvoiceNumber,
+                    "Sales Entry");
 
                 grandTotal += lineTotal;
             }
-
             sale.TotalAmount = grandTotal;
-
             await _context.SaveChangesAsync();
-
             await transaction.CommitAsync();
-
             return sale.Id;
         }
         catch
@@ -84,7 +91,6 @@ public class SaleService
     private async Task<string> GenerateInvoiceNumber()
     {
         int count = await _context.Sales.CountAsync() + 1;
-
         return $"INV-{DateTime.Now:yyyyMMdd}-{count:D6}";
     }
 }

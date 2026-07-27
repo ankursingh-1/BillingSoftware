@@ -4,6 +4,7 @@ using Billing.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Billing.Persistence.Migrations
 {
     [DbContext(typeof(BillingDbContext))]
-    partial class BillingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260724103713_AddUnitModule")]
+    partial class AddUnitModule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -300,9 +303,6 @@ namespace Billing.Persistence.Migrations
                     b.Property<int>("Stock")
                         .HasColumnType("int");
 
-                    b.Property<int?>("TaxId")
-                        .HasColumnType("int");
-
                     b.Property<int?>("UnitId")
                         .HasColumnType("int");
 
@@ -314,8 +314,6 @@ namespace Billing.Persistence.Migrations
                     b.HasIndex("BrandId");
 
                     b.HasIndex("CategoryId");
-
-                    b.HasIndex("TaxId");
 
                     b.HasIndex("UnitId");
 
@@ -515,59 +513,6 @@ namespace Billing.Persistence.Migrations
                     b.ToTable("SaleItems", (string)null);
                 });
 
-            modelBuilder.Entity("Billing.Domain.Entities.StockLedger", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("CurrentStock")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("ModifiedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("PreviousStock")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ProductId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Quantity")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ReferenceNo")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Remarks")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("TransactionType")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("modifieson")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductId");
-
-                    b.ToTable("StockLedgers", (string)null);
-                });
-
             modelBuilder.Entity("Billing.Domain.Entities.Supplier", b =>
                 {
                     b.Property<int>("Id")
@@ -617,53 +562,6 @@ namespace Billing.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Suppliers", (string)null);
-                });
-
-            modelBuilder.Entity("Billing.Domain.Entities.Tax", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("ModifiedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<decimal>("Percentage")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<DateTime?>("modifieson")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("Taxes", (string)null);
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.Unit", b =>
@@ -780,11 +678,6 @@ namespace Billing.Persistence.Migrations
                         .HasForeignKey("CategoryId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("Billing.Domain.Entities.Tax", "Tax")
-                        .WithMany("Products")
-                        .HasForeignKey("TaxId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("Billing.Domain.Entities.Unit", "Unit")
                         .WithMany("Products")
                         .HasForeignKey("UnitId")
@@ -793,8 +686,6 @@ namespace Billing.Persistence.Migrations
                     b.Navigation("Brand");
 
                     b.Navigation("Category");
-
-                    b.Navigation("Tax");
 
                     b.Navigation("Unit");
                 });
@@ -859,17 +750,6 @@ namespace Billing.Persistence.Migrations
                     b.Navigation("Sale");
                 });
 
-            modelBuilder.Entity("Billing.Domain.Entities.StockLedger", b =>
-                {
-                    b.HasOne("Billing.Domain.Entities.Product", "Product")
-                        .WithMany("StockLedgers")
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Product");
-                });
-
             modelBuilder.Entity("Billing.Domain.Entities.User", b =>
                 {
                     b.HasOne("Billing.Domain.Entities.Role", "Role")
@@ -891,11 +771,6 @@ namespace Billing.Persistence.Migrations
                     b.Navigation("Products");
                 });
 
-            modelBuilder.Entity("Billing.Domain.Entities.Product", b =>
-                {
-                    b.Navigation("StockLedgers");
-                });
-
             modelBuilder.Entity("Billing.Domain.Entities.Purchase", b =>
                 {
                     b.Navigation("PurchaseItems");
@@ -909,11 +784,6 @@ namespace Billing.Persistence.Migrations
             modelBuilder.Entity("Billing.Domain.Entities.Sale", b =>
                 {
                     b.Navigation("SaleItems");
-                });
-
-            modelBuilder.Entity("Billing.Domain.Entities.Tax", b =>
-                {
-                    b.Navigation("Products");
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.Unit", b =>

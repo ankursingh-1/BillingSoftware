@@ -18,5 +18,11 @@ namespace Billing.Domain.Entities
         public Category? Category { get; set; }
         public int? BrandId { get; set; }
         public Brand? Brand { get; set; }
+        public int? UnitId { get; set; }
+        public Unit? Unit { get; set; }
+        public int? TaxId { get; set; }
+        public Tax? Tax { get; set; }
+        public ICollection<StockLedger> StockLedgers { get; set; }
+        = new List<StockLedger>();
     }
 }

@@ -25,13 +25,17 @@ builder.Services.AddScoped<PurchaseService>();
 builder.Services.AddScoped<SaleService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ReportService>();
-builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
 builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<IPdfExportService, PdfExportService>();
 builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
 builder.Services.AddScoped<ICompanyService, CompanyService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
+builder.Services.AddScoped<IUnitService, UnitService>();
+builder.Services.AddScoped<ITaxService, TaxService>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<IStockLedgerService, StockLedgerService>();
+
 
 var jwt = builder.Configuration.GetSection("JwtSettings");
 

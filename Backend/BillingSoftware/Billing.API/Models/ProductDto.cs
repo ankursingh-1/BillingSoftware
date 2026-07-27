@@ -12,4 +12,9 @@ public class ProductDto
     public string? CategoryName { get; set; }
     public int? BrandId { get; set; }
     public string? BrandName { get; set; }
+    public int? UnitId { get; set; }
+    public string? UnitName { get; set; }
+    public int? TaxId { get; set; }
+    public string? TaxName { get; set; }
+    public decimal? TaxPercentage { get; set; }
 }

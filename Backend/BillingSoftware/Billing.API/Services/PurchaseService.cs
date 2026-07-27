@@ -1,5 +1,7 @@
 ﻿using Billing.API.Models;
 using Billing.Domain.Entities;
+using Billing.Application.Interfaces;
+using Billing.Domain.Enums;
 using Billing.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,10 +10,13 @@ namespace Billing.API.Services;
 public class PurchaseService
 {
     private readonly BillingDbContext _context;
+    private readonly IInventoryService _inventoryService;
 
-    public PurchaseService(BillingDbContext context)
+    public PurchaseService(BillingDbContext context,
+    IInventoryService inventoryService)
     {
         _context = context;
+        _inventoryService = inventoryService;
     }
 
     public async Task<int> CreateAsync(CreatePurchaseDto dto)
@@ -58,17 +63,17 @@ public class PurchaseService
 
                 _context.PurchaseItems.Add(purchaseItem);
 
-                product.Stock += item.Quantity;
-
+                await _inventoryService.AdjustStockAsync(
+                product.Id,
+                item.Quantity,
+                StockTransactionType.Purchase,
+                purchase.PurchaseNumber,"Purchase Entry");
                 grandTotal += lineTotal;
             }
 
             purchase.TotalAmount = grandTotal;
-
             await _context.SaveChangesAsync();
-
             await transaction.CommitAsync();
-
             return purchase.Id;
         }
         catch
@@ -81,7 +86,6 @@ public class PurchaseService
     private async Task<string> GeneratePurchaseNumber()
     {
         int count = await _context.Purchases.CountAsync() + 1;
-
         return $"PUR-{DateTime.Now:yyyyMMdd}-{count:D6}";
     }
 }
