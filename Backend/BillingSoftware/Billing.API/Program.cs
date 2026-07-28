@@ -35,6 +35,7 @@ builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<ITaxService, TaxService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IStockLedgerService, StockLedgerService>();
+builder.Services.AddScoped<IStockAdjustmentService, StockAdjustmentService>();
 
 
 var jwt = builder.Configuration.GetSection("JwtSettings");
