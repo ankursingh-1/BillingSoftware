@@ -39,6 +39,7 @@ builder.Services.AddScoped<IStockAdjustmentService, StockAdjustmentService>();
 builder.Services.AddScoped<IPurchaseReturnService, PurchaseReturnService>();
 builder.Services.AddScoped<ISalesReturnService, SalesReturnService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
+builder.Services.AddScoped<IAppSettingService, AppSettingService>();
 
 
 var jwt = builder.Configuration.GetSection("JwtSettings");

@@ -1,16 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Billing.Application.DTOs.SalesReturn
 {
     public class CreateSalesReturnDto
     {
+        [Range(1, int.MaxValue, ErrorMessage = "Please select a valid product.")]
         public int ProductId { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "Quantity must be greater than 0.")]
         public int Quantity { get; set; }
+
+        [StringLength(50, ErrorMessage = "Reference number cannot exceed 50 characters.")]
         public string? ReferenceNo { get; set; }
+
+        [StringLength(500, ErrorMessage = "Remarks cannot exceed 500 characters.")]
         public string? Remarks { get; set; }
     }
 }

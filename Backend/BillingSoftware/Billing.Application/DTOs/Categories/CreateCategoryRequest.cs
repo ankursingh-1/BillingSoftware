@@ -6,9 +6,21 @@ using System.Threading.Tasks;
 
 namespace Billing.Application.DTOs.Categories;
 
+//public class CreateCategoryRequest
+//{
+//    public string Name { get; set; } = string.Empty;
+
+//    public string? Description { get; set; }
+//}
+
+using System.ComponentModel.DataAnnotations;
+
 public class CreateCategoryRequest
 {
+    [Required(ErrorMessage = "Category name is required.")]
+    [StringLength(100, ErrorMessage = "Category name cannot exceed 100 characters.")]
     public string Name { get; set; } = string.Empty;
 
+    [StringLength(500)]
     public string? Description { get; set; }
 }

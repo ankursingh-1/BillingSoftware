@@ -31,6 +31,7 @@ namespace Billing.Persistence.Context
         public DbSet<Tax> Taxes => Set<Tax>();
         public DbSet<StockLedger> StockLedgers => Set<StockLedger>();
         public DbSet<Expense> Expenses => Set<Expense>();
+        public DbSet<AppSetting> AppSettings => Set<AppSetting>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -39,6 +40,7 @@ namespace Billing.Persistence.Context
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(BillingDbContext).Assembly);
             modelBuilder.ApplyConfiguration(new StockLedgerConfiguration());
             modelBuilder.ApplyConfiguration(new ExpenseConfiguration());
+            modelBuilder.ApplyConfiguration(new AppSettingConfiguration());
         }
     }
 
