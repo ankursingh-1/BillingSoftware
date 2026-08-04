@@ -39,3 +39,31 @@
     font-weight: 700;
     font-size: 28px;
 }
+
+.dashboard-widget {
+
+    background: white;
+
+    border-radius: 18px;
+
+    box-shadow: 0 8px 25px rgba(0, 0, 0, .08);
+
+    overflow: hidden;
+
+}
+
+.widget-header {
+
+    padding: 18px 22px;
+
+    border-bottom: 1px solid #eee;
+
+    font-weight: 600;
+
+}
+
+.widget-header h5 {
+
+    margin: 0;
+
+}

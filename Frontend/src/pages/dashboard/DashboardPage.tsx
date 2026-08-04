@@ -1,18 +1,16 @@
 import "../../styles/dashboard.css";
 
 import StatCard from "../../components/dashboard/StatCard";
+import RecentSales from "../../components/dashboard/RecentSales";
+import LowStock from "../../components/dashboard/LowStock";
 
 function DashboardPage() {
     return (
         <>
 
-            <div className="mb-4">
-
-                <h2 className="page-title">
-                    Dashboard
-                </h2>
-
-            </div>
+            <h2 className="page-title mb-4">
+                Dashboard
+            </h2>
 
             <div className="row">
 
@@ -31,7 +29,7 @@ function DashboardPage() {
                 />
 
                 <StatCard
-                    title="Total Products"
+                    title="Products"
                     value="0"
                     icon="bi-box-seam"
                     color="#ea580c"
@@ -43,6 +41,22 @@ function DashboardPage() {
                     icon="bi-graph-up-arrow"
                     color="#9333ea"
                 />
+
+            </div>
+
+            <div className="row mt-4">
+
+                <div className="col-lg-8">
+
+                    <RecentSales />
+
+                </div>
+
+                <div className="col-lg-4">
+
+                    <LowStock />
+
+                </div>
 
             </div>
 
