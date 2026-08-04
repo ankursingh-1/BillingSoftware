@@ -1,14 +1,41 @@
-.page-title{
-
-    font-size:30px;
-    font-weight:700;
-
+.page-title {
+    font-size: 30px;
+    font-weight: 700;
 }
 
-.card-box{
+.stat-card {
+    background: #fff;
+    border-radius: 18px;
+    padding: 22px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, .08);
+    transition: .3s;
+}
 
-    background:white;
-    border-radius:14px;
-    box-shadow:var(--shadow);
-    padding:25px;
+.stat-card:hover {
+    transform: translateY(-6px);
+}
+
+.stat-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 18px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+}
+
+.stat-content h6 {
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+
+.stat-content h3 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 28px;
 }
