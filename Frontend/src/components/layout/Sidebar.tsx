@@ -43,7 +43,7 @@ const menuItems = [
   },
   {
     title: "Settings",
-    path: "/settings",
+    path: "/dashboard/settings",
     icon: "bi-gear",
   },
 ];
