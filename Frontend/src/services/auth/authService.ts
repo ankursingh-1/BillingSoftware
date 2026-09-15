@@ -1,5 +1,4 @@
-import axios from "axios";
-import { API_URL } from "../../config/api";
+import apiClient from "../api/apiClient";
 
 export interface LoginRequest {
     email: string;
@@ -12,18 +11,10 @@ export interface LoginResponse {
     message?: string;
 }
 
-const api = axios.create({
-    baseURL: API_URL,
-    headers: {
-        "Content-Type": "application/json",
-    },
-});
-
 export const login = async (
     request: LoginRequest
 ): Promise<LoginResponse> => {
-
-    const response = await api.post<LoginResponse>(
+    const response = await apiClient.post<LoginResponse>(
         "/Auth/login",
         request
     );
@@ -31,4 +22,13 @@ export const login = async (
     return response.data;
 };
 
-export default api;
+export const logout = (): void => {
+    localStorage.removeItem("token");
+    window.location.replace("/login");
+};
+
+export const getToken = (): string | null => {
+    return localStorage.getItem("token");
+};
+
+export default apiClient;

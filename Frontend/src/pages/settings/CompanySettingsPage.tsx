@@ -132,9 +132,7 @@ function CompanySettingsPage() {
 
         try {
             setSaving(true);
-
             await saveCompany(form);
-
             toast.success(
                 "Company settings saved successfully."
             );

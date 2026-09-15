@@ -1,110 +1,106 @@
 import { NavLink } from "react-router-dom";
+import { logout } from "../../services/auth/authService";
 
 const menuItems = [
-  {
-    title: "Dashboard",
-    path: "/",
-    icon: "bi-speedometer2",
-  },
-  {
-    title: "Products",
-    path: "/products",
-    icon: "bi-box-seam",
-  },
-  {
-    title: "Categories",
-    path: "/categories",
-    icon: "bi-grid",
-  },
-  {
-    title: "Purchase",
-    path: "/purchase",
-    icon: "bi-cart-check",
-  },
-  {
-    title: "Sales",
-    path: "/sales",
-    icon: "bi-receipt",
-  },
-  {
-    title: "Customers",
-    path: "/customers",
-    icon: "bi-people",
-  },
-  {
-    title: "Suppliers",
-    path: "/suppliers",
-    icon: "bi-truck",
-  },
-  {
-    title: "Reports",
-    path: "/reports",
-    icon: "bi-graph-up-arrow",
-  },
-  {
-    title: "Settings",
-    path: "/dashboard/settings",
-    icon: "bi-gear",
-  },
+    {
+        title: "Dashboard",
+        path: "/dashboard",
+        icon: "bi-speedometer2",
+    },
+    {
+        title: "Products",
+        path: "/products",
+        icon: "bi-box-seam",
+    },
+    {
+        title: "Categories",
+        path: "/categories",
+        icon: "bi-grid",
+    },
+    {
+        title: "Purchase",
+        path: "/purchase",
+        icon: "bi-cart-check",
+    },
+    {
+        title: "Sales",
+        path: "/sales",
+        icon: "bi-receipt",
+    },
+    {
+        title: "Customers",
+        path: "/customers",
+        icon: "bi-people",
+    },
+    {
+        title: "Suppliers",
+        path: "/suppliers",
+        icon: "bi-truck",
+    },
+    {
+        title: "Reports",
+        path: "/reports",
+        icon: "bi-graph-up-arrow",
+    },
+    {
+        title: "Settings",
+        path: "/dashboard/settings",
+        icon: "bi-gear",
+    },
 ];
 
 function Sidebar() {
-  return (
-    <aside className="sidebar">
+    return (
+        <aside className="sidebar">
 
-      <div className="sidebar-logo">
+            <div className="sidebar-logo">
+                <div className="logo-circle">
+                    BS
+                </div>
 
-        <div className="logo-circle">
-          BS
-        </div>
+                <div>
+                    <h5>Billing ERP</h5>
+                    <small>Version 1.0</small>
+                </div>
+            </div>
 
-        <div>
-          <h5>Billing ERP</h5>
-          <small>Version 1.0</small>
-        </div>
+            <ul className="sidebar-menu">
 
-      </div>
+                {menuItems.map((item) => (
+                    <li key={item.title}>
 
-      <ul className="sidebar-menu">
+                        <NavLink
+                            to={item.path}
+                            className={({ isActive }) =>
+                                isActive
+                                    ? "menu-link active-menu"
+                                    : "menu-link"
+                            }
+                        >
+                            <i
+                                className={`bi ${item.icon}`}
+                            ></i>
+                            <span>
+                                {item.title}
+                            </span>
+                        </NavLink>
+                    </li>
+                ))}
+            </ul>
 
-        {menuItems.map((item) => (
+            <div className="sidebar-footer">
 
-          <li key={item.title}>
-
-            <NavLink
-              to={item.path}
-              className={({ isActive }) =>
-                isActive
-                  ? "menu-link active-menu"
-                  : "menu-link"
-              }
-            >
-              <i className={`bi ${item.icon}`}></i>
-
-              <span>{item.title}</span>
-
-            </NavLink>
-
-          </li>
-
-        ))}
-
-      </ul>
-
-      <div className="sidebar-footer">
-
-        <button className="logout-btn">
-
-          <i className="bi bi-box-arrow-right"></i>
-
-          Logout
-
-        </button>
-
-      </div>
-
-    </aside>
-  );
+                <button
+                    type="button"
+                    className="logout-btn"
+                    onClick={logout}
+                >
+                    <i className="bi bi-box-arrow-right"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </aside>
+    );
 }
 
 export default Sidebar;
