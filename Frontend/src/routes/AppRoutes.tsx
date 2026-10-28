@@ -9,6 +9,9 @@ import MainLayout from "../layouts/MainLayout";
 import LoginPage from "../pages/auth/LoginPage";
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import CompanySettingsPage from "../pages/settings/CompanySettingsPage";
+import ProductsPage from "../pages/products/ProductsPage";
+import ProductFormPage from "../pages/products/ProductFormPage";
+import CategoriesPage from "../pages/categories/CategoriesPage";
 
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -39,9 +42,8 @@ export default function AppRoutes() {
                     element={<LoginPage />}
                 />
 
-                {/* Protected Application */}
+                {/* Protected Application (shared layout, no path of its own) */}
                 <Route
-                    path="/dashboard"
                     element={
                         <ProtectedRoute>
                             <MainLayout />
@@ -50,14 +52,34 @@ export default function AppRoutes() {
                 >
                     {/* Dashboard */}
                     <Route
-                        index
+                        path="/dashboard"
                         element={<DashboardPage />}
                     />
 
                     {/* Company Settings */}
                     <Route
-                        path="settings"
+                        path="/dashboard/settings"
                         element={<CompanySettingsPage />}
+                    />
+
+                    {/* Products */}
+                    <Route
+                        path="/products"
+                        element={<ProductsPage />}
+                    />
+                    <Route
+                        path="/products/new"
+                        element={<ProductFormPage />}
+                    />
+                    <Route
+                        path="/products/:id/edit"
+                        element={<ProductFormPage />}
+                    />
+
+                    {/* Categories */}
+                    <Route
+                        path="/categories"
+                        element={<CategoriesPage />}
                     />
                 </Route>
 

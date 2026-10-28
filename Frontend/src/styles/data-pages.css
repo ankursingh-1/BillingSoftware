@@ -1,0 +1,141 @@
+/* Shared styles for list / form pages (products, categories, ...) */
+
+.data-page {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.data-page-narrow {
+    max-width: 960px;
+}
+
+.data-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 25px;
+}
+
+.data-page-subtitle {
+    color: #6b7280;
+    margin: 5px 0 0;
+}
+
+.data-page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.data-card {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, .08);
+    overflow: hidden;
+}
+
+.data-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.data-search {
+    max-width: 380px;
+    flex: 1 1 240px;
+}
+
+.data-toolbar-right select {
+    min-width: 110px;
+}
+
+.table-wrapper {
+    position: relative;
+}
+
+.table-wrapper.is-loading .table-responsive {
+    opacity: .55;
+    pointer-events: none;
+    transition: opacity .15s;
+}
+
+.table-wrapper .table th {
+    white-space: nowrap;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #6b7280;
+}
+
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid #eee;
+}
+
+.pagination-summary {
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.state-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 260px;
+    padding: 30px 20px;
+    text-align: center;
+    color: #6b7280;
+}
+
+.state-block p {
+    margin: 0;
+}
+
+.state-icon {
+    font-size: 38px;
+    color: #9ca3af;
+}
+
+.form-section {
+    padding: 24px;
+    margin-bottom: 20px;
+    overflow: visible;
+}
+
+.form-section-title {
+    font-weight: 700;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #edf0f4;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-bottom: 20px;
+}
+
+@media (max-width: 576px) {
+    .data-page-header {
+        flex-direction: column;
+    }
+
+    .pagination-bar {
+        justify-content: center;
+    }
+}

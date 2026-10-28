@@ -71,6 +71,7 @@ function Sidebar() {
 
                         <NavLink
                             to={item.path}
+                            end={item.path === "/dashboard"}
                             className={({ isActive }) =>
                                 isActive
                                     ? "menu-link active-menu"
