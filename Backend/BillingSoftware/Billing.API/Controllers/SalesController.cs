@@ -20,12 +20,26 @@ public class SalesController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(CreateSaleRequest request)
     {
-        var saleId = await _saleService.CreateAsync(request);
+        var sale = await _saleService.CreateAsync(request);
 
         return Ok(new
         {
             Message = "Sale created successfully.",
-            SaleId = saleId
+            sale.SaleId,
+            sale.InvoiceNumber,
+            sale.TotalAmount
         });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Search([FromQuery] SaleSearchRequest request)
+    {
+        return Ok(await _saleService.SearchAsync(request));
+    }
+
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        return Ok(await _saleService.GetByIdAsync(id));
     }
 }
