@@ -12,6 +12,8 @@ import CompanySettingsPage from "../pages/settings/CompanySettingsPage";
 import ProductsPage from "../pages/products/ProductsPage";
 import ProductFormPage from "../pages/products/ProductFormPage";
 import CategoriesPage from "../pages/categories/CategoriesPage";
+import CustomersPage from "../pages/customers/CustomersPage";
+import SuppliersPage from "../pages/suppliers/SuppliersPage";
 
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -80,6 +82,18 @@ export default function AppRoutes() {
                     <Route
                         path="/categories"
                         element={<CategoriesPage />}
+                    />
+
+                    {/* Customers */}
+                    <Route
+                        path="/customers"
+                        element={<CustomersPage />}
+                    />
+
+                    {/* Suppliers */}
+                    <Route
+                        path="/suppliers"
+                        element={<SuppliersPage />}
                     />
                 </Route>
 

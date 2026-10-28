@@ -139,3 +139,46 @@
         justify-content: center;
     }
 }
+
+/* Read-only details (DetailsModal) */
+
+.details-list {
+    margin: 0;
+}
+
+.details-row {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f2f5;
+}
+
+.details-row:last-child {
+    border-bottom: 0;
+}
+
+.details-row dt {
+    font-weight: 600;
+    color: #6b7280;
+}
+
+.details-row dd {
+    margin: 0;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.cell-truncate {
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 576px) {
+    .details-row {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+}
