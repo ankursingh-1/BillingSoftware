@@ -1,4 +1,5 @@
 ﻿using Billing.Application.DTOs.Dashboard;
+using Billing.Application.Inventory;
 using Billing.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,10 +8,12 @@ namespace Billing.API.Services;
 public class DashboardService
 {
     private readonly BillingDbContext _context;
+    private readonly StockAlertPolicy _alerts;
 
-    public DashboardService(BillingDbContext context)
+    public DashboardService(BillingDbContext context, StockAlertPolicy alerts)
     {
         _context = context;
+        _alerts = alerts;
     }
     public async Task<List<RecentSaleDto>> GetRecentSalesAsync(int count = 10)
     {
@@ -48,12 +51,15 @@ public class DashboardService
             .ToListAsync();
     }
 
-    public async Task<List<LowStockDto>> GetLowStockProductsAsync(int threshold = 5)
+    public async Task<List<LowStockDto>> GetLowStockProductsAsync(int? threshold = null)
     {
+        var limit = threshold ?? _alerts.LowStockThreshold;
+
         return await _context.Products
             .AsNoTracking()
             .Where(x => !x.IsDeleted &&
-                        x.Stock <= threshold)
+                        x.Stock > 0 &&
+                        x.Stock <= limit)
             .OrderBy(x => x.Stock)
             .Select(x => new LowStockDto
             {
@@ -103,19 +109,33 @@ public class DashboardService
 
         var totalCustomers = await _context.Customers
             .AsNoTracking()
-            .CountAsync();
+            .CountAsync(x => !x.IsDeleted);
 
         var totalSuppliers = await _context.Suppliers
             .AsNoTracking()
-            .CountAsync();
+            .CountAsync(x => !x.IsDeleted);
 
         var lowStockProducts = await _context.Products
             .AsNoTracking()
-            .CountAsync(x => !x.IsDeleted && x.Stock > 0 && x.Stock <= 5);
+            .CountAsync(x => !x.IsDeleted && x.Stock > 0 && x.Stock <= _alerts.LowStockThreshold);
 
         var outOfStockProducts = await _context.Products
             .AsNoTracking()
             .CountAsync(x => !x.IsDeleted && x.Stock == 0);
+
+        var monthLines = await _context.SaleItems.AsNoTracking()
+            .Where(i => i.Sale.SaleDate >= monthStart)
+            .Select(i => new { i.CostPrice, i.Quantity, SaleTotal = i.Sale.TotalAmount, i.SaleId })
+            .ToListAsync();
+
+        var monthSaleTotals = await _context.Sales.AsNoTracking()
+            .Where(s => s.SaleDate >= monthStart)
+            .Select(s => s.TotalAmount)
+            .ToListAsync();
+        var monthMissingCost = monthLines.Any(l => !l.CostPrice.HasValue);
+        decimal? monthProfit = monthMissingCost
+            ? null
+            : monthSaleTotals.Sum() - monthLines.Sum(l => l.Quantity * l.CostPrice!.Value);
 
         return new DashboardSummaryDto
         {
@@ -127,7 +147,8 @@ public class DashboardService
             TodayPurchase = todayPurchase,
             MonthlyPurchase = monthlyPurchase,
 
-            GrossProfit = totalSales - totalPurchase,
+            GrossProfit = monthProfit,
+            GrossProfitComplete = !monthMissingCost,
 
             TotalProducts = totalProducts,
             TotalCustomers = totalCustomers,

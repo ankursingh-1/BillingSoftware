@@ -46,3 +46,41 @@ export interface CreateProductResponse {
     message: string;
     productId: number;
 }
+
+export type ProductImportStatus =
+    | "Valid"
+    | "Invalid"
+    | "Duplicate"
+    | "Imported"
+    | "Skipped";
+
+export interface ProductImportRow {
+    excelRow: number;
+    name: string;
+    sku: string;
+    category: string | null;
+    brand: string | null;
+    unit: string | null;
+    tax: string | null;
+    hsn: string | null;
+    purchasePrice: number | null;
+    sellingPrice: number | null;
+    openingStock: number;
+    status: ProductImportStatus;
+    error: string | null;
+}
+
+export interface ProductImportPreview {
+    totalRows: number;
+    valid: number;
+    invalid: number;
+    duplicate: number;
+    canImport: boolean;
+    policy: string;
+    rows: ProductImportRow[];
+}
+
+export interface ProductImportResult extends ProductImportPreview {
+    imported: number;
+    skipped: number;
+}

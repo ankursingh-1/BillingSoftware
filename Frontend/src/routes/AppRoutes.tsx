@@ -24,6 +24,8 @@ import PurchaseDetailPage from "../pages/purchases/PurchaseDetailPage";
 import InventoryPage from "../pages/inventory/InventoryPage";
 import ReturnsPage from "../pages/returns/ReturnsPage";
 import ReturnDetailPage from "../pages/returns/ReturnDetailPage";
+import ExpensesPage from "../pages/expenses/ExpensesPage";
+import ReportsPage from "../pages/reports/ReportsPage";
 
 import AdminRoute from "./AdminRoute";
 import ProtectedRoute from "./ProtectedRoute";
@@ -162,6 +164,14 @@ export default function AppRoutes() {
                     />
 
                     {/* Returns */}
+                    <Route
+                        path="/expenses"
+                        element={<ExpensesPage />}
+                    />
+                    <Route
+                        path="/reports"
+                        element={<ReportsPage />}
+                    />
                     <Route
                         path="/returns"
                         element={<ReturnsPage />}

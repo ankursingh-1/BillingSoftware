@@ -7,7 +7,8 @@ export interface DashboardSummary {
     todayPurchase: number;
     monthlyPurchase: number;
 
-    grossProfit: number;
+    grossProfit: number | null;
+    grossProfitComplete: boolean;
 
     totalProducts: number;
     totalCustomers: number;

@@ -44,6 +44,23 @@ above) and do not paste secrets into chat, issues, or logs.
 `dotnet ef` commands use the same configuration (Development environment by
 default), so migrations pick up the secret connection string automatically.
 
+## File storage (company logo)
+
+| Setting | Environment variable | Notes |
+|---|---|---|
+| `Storage:Root` | `Storage__Root` | Persistent folder for uploaded logos. Defaults to `App_Data` under the app folder, which **does not survive a deploy that replaces the app directory**. In production set this to a backed-up disk path (or a mounted volume). |
+
+Logos are stored under `{Storage:Root}/logos` with random names. Old files are kept when you replace a logo so issued invoices still resolve their snapshot.
+
+## Demo data
+
+| Setting | Default | Notes |
+|---|---|---|
+| `Demo:Enabled` | `false` | Must be true to call `POST /api/Demo/seed` |
+| `Demo:AllowInProduction` | `false` | Leave false. Seed only on a copy database |
+
+See `Documentation/DEMO-GUIDE.md`.
+
 ## Production
 
 Set environment variables on the host (or use your platform's secret store,

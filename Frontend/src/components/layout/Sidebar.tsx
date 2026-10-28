@@ -58,6 +58,11 @@ const menuItems: MenuItem[] = [
         icon: "bi-truck",
     },
     {
+        title: "Expenses",
+        path: "/expenses",
+        icon: "bi-wallet2",
+    },
+    {
         title: "Reports",
         path: "/reports",
         icon: "bi-graph-up-arrow",

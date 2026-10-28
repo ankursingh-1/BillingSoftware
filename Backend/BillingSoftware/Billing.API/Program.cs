@@ -1,5 +1,6 @@
 using Billing.API.Extensions;
 using Billing.API.Services;
+using Billing.API.Services.ProductImport;
 using Billing.Application;
 using Billing.Application.Interfaces;
 using Billing.Infrastructure.Security;
@@ -58,6 +59,8 @@ builder.Services.AddApplication();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<PasswordService>();
 builder.Services.AddScoped<ProductService>();
+builder.Services.AddScoped<ProductImportService>();
+builder.Services.AddScoped<DemoDataService>();
 builder.Services.AddScoped<CustomerService>();
 builder.Services.AddScoped<SupplierService>();
 builder.Services.AddScoped<PurchaseService>();

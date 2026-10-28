@@ -1,4 +1,7 @@
-﻿using Billing.Application.DTOs.Reports;
+﻿using Billing.Application.Accounting;
+using Billing.Application.DTOs.Expense;
+using Billing.Application.DTOs.Reports;
+using Billing.Application.Inventory;
 using Billing.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,10 +10,12 @@ namespace Billing.API.Services;
 public class ReportService
 {
     private readonly BillingDbContext _context;
+    private readonly StockAlertPolicy _alerts;
 
-    public ReportService(BillingDbContext context)
+    public ReportService(BillingDbContext context, StockAlertPolicy alerts)
     {
         _context = context;
+        _alerts = alerts;
     }
 
     public async Task<SalesReportResponse> GetSalesReportAsync(SalesReportRequest request)
@@ -133,7 +138,8 @@ public class ReportService
 
         if (request.LowStockOnly == true)
         {
-            query = query.Where(x => x.Stock > 0 && x.Stock <= 10);
+            var threshold = _alerts.LowStockThreshold;
+            query = query.Where(x => x.Stock > 0 && x.Stock <= threshold);
         }
 
         if (request.OutOfStockOnly == true)
@@ -176,56 +182,277 @@ public class ReportService
     {
         var query = _context.Sales
             .Include(x => x.SaleItems)
-                .ThenInclude(x => x.Product)
             .AsNoTracking()
             .AsQueryable();
 
         if (request.FromDate.HasValue)
-        {
-            query = query.Where(x => x.SaleDate.Date >= request.FromDate.Value.Date);
-        }
+            query = query.Where(x => x.SaleDate >= request.FromDate.Value.Date);
 
         if (request.ToDate.HasValue)
-        {
-            query = query.Where(x => x.SaleDate.Date <= request.ToDate.Value.Date);
-        }
+            query = query.Where(x => x.SaleDate <= request.ToDate.Value.Date.AddDays(1).AddTicks(-1));
 
         var sales = await query.ToListAsync();
+        var withCost = 0;
+        var missing = 0;
 
         var items = sales.Select(sale =>
         {
-            decimal purchaseCost = sale.SaleItems.Sum(x => x.Quantity * x.Product.PurchasePrice);
+            var complete = sale.SaleItems.All(i => i.CostPrice.HasValue);
+            decimal? cogs = complete
+                ? sale.SaleItems.Sum(i => i.Quantity * i.CostPrice!.Value)
+                : null;
 
-            decimal saleAmount = sale.TotalAmount;
-
-            decimal profit = saleAmount - purchaseCost;
+            foreach (var line in sale.SaleItems)
+            {
+                if (line.CostPrice.HasValue) withCost++;
+                else missing++;
+            }
 
             return new ProfitReportItemDto
             {
                 InvoiceNumber = sale.InvoiceNumber,
                 SaleDate = sale.SaleDate,
-                SaleAmount = saleAmount,
-                PurchaseCost = purchaseCost,
-                Profit = profit
+                SaleAmount = sale.TotalAmount,
+                CostOfGoodsSold = cogs,
+                Profit = cogs.HasValue ? sale.TotalAmount - cogs.Value : null,
+                CostComplete = complete
             };
         }).ToList();
 
-        decimal totalSales = items.Sum(x => x.SaleAmount);
-
-        decimal totalPurchaseCost = items.Sum(x => x.PurchaseCost);
-
-        decimal grossProfit = totalSales - totalPurchaseCost;
-
-        decimal profitPercentage = totalPurchaseCost == 0
-            ? 0
-            : (grossProfit / totalPurchaseCost) * 100;
+        var totalSales = items.Sum(x => x.SaleAmount);
+        var costComplete = missing == 0;
+        var cogsTotal = costComplete ? items.Sum(x => x.CostOfGoodsSold ?? 0) : (decimal?)null;
 
         return new ProfitReportResponse
         {
             TotalSales = totalSales,
-            TotalPurchaseCost = totalPurchaseCost,
-            GrossProfit = grossProfit,
-            ProfitPercentage = Math.Round(profitPercentage, 2),
+            CostOfGoodsSold = cogsTotal ?? 0,
+            GrossProfit = cogsTotal.HasValue ? totalSales - cogsTotal.Value : null,
+            ProfitPercentage = cogsTotal is > 0
+                ? Math.Round((totalSales - cogsTotal.Value) / cogsTotal.Value * 100, 2)
+                : null,
+            LinesWithCost = withCost,
+            LinesMissingCost = missing,
+            CostComplete = costComplete,
+            Limitation = costComplete
+                ? null
+                : "Gross profit is not shown because some sale lines have no recorded cost. " +
+                  "It is not calculated as sales minus purchases (that would count unsold stock as an expense).",
+            Items = items
+        };
+    }
+
+    public async Task<ExpenseReportResponse> GetExpenseReportAsync(ExpenseSearchRequest request)
+    {
+        var result = await new ExpenseService(_context).SearchAsync(request);
+        var total = await _context.Expenses.AsNoTracking()
+            .Where(x => !x.IsDeleted)
+            .Where(x => !request.FromDate.HasValue || x.ExpenseDate >= request.FromDate.Value.Date)
+            .Where(x => !request.ToDate.HasValue || x.ExpenseDate <= request.ToDate.Value.Date)
+            .SumAsync(x => (decimal?)x.Amount) ?? 0;
+
+        return new ExpenseReportResponse
+        {
+            PageNumber = result.PageNumber,
+            PageSize = result.PageSize,
+            TotalRecords = result.TotalRecords,
+            TotalPages = result.TotalPages,
+            GrandTotal = total,
+            Items = result.Items
+        };
+    }
+
+    public async Task<CustomerReportResponse> GetCustomerReportAsync(PartyReportRequest request)
+    {
+        var pageSize = Math.Clamp(request.PageSize <= 0 ? 10 : request.PageSize, 1, 10_000);
+        var pageNumber = Math.Max(request.PageNumber, 1);
+
+        var sales = _context.Sales.AsNoTracking().AsQueryable();
+        if (request.FromDate.HasValue)
+            sales = sales.Where(s => s.SaleDate >= request.FromDate.Value.Date);
+        if (request.ToDate.HasValue)
+            sales = sales.Where(s => s.SaleDate < request.ToDate.Value.Date.AddDays(1));
+
+        var saleRows = await sales.Select(s => new
+        {
+            s.CustomerId,
+            s.TotalAmount,
+            s.PaymentTracked,
+            Paid = s.Payments.Where(p => !p.IsVoided).Sum(p => (decimal?)p.Amount) ?? 0,
+            Returned = _context.SalesReturns.Where(r => r.SaleId == s.Id).Sum(r => (decimal?)r.TotalAmount) ?? 0,
+            Refunded = _context.SalesReturns.Where(r => r.SaleId == s.Id).Sum(r => (decimal?)r.RefundAmount) ?? 0
+        }).ToListAsync();
+
+        var byCustomer = saleRows.GroupBy(s => s.CustomerId).ToDictionary(
+            g => g.Key,
+            g => g.ToList());
+
+        var customers = _context.Customers.AsNoTracking().Where(c => !c.IsDeleted);
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var search = request.Search.Trim();
+            customers = customers.Where(c =>
+                c.Name.Contains(search) ||
+                c.Mobile.Contains(search) ||
+                (c.Gstin != null && c.Gstin.Contains(search)));
+        }
+
+        var list = await customers.OrderBy(c => c.Name).ToListAsync();
+        var items = list.Select(c =>
+        {
+            byCustomer.TryGetValue(c.Id, out var group);
+            group ??= [];
+            var billed = group.Sum(s => s.TotalAmount);
+            var outstanding = group
+                .Where(s => s.PaymentTracked)
+                .Sum(s => PaymentCalculator.Summarise(
+                    s.TotalAmount, s.Returned, s.Paid, s.Refunded, true).Outstanding);
+
+            return new CustomerReportItemDto
+            {
+                CustomerId = c.Id,
+                Name = c.Name,
+                Mobile = c.Mobile,
+                Gstin = c.Gstin,
+                InvoiceCount = group.Count,
+                Billed = billed,
+                Outstanding = outstanding
+            };
+        }).ToList();
+
+        var totalBilled = items.Sum(i => i.Billed);
+        var totalOutstanding = items.Sum(i => i.Outstanding);
+        var totalRecords = items.Count;
+        var page = items.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+
+        return new CustomerReportResponse
+        {
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalRecords = totalRecords,
+            TotalPages = (int)Math.Ceiling(totalRecords / (double)pageSize),
+            TotalBilled = totalBilled,
+            TotalOutstanding = totalOutstanding,
+            Items = page
+        };
+    }
+
+    public async Task<SupplierReportResponse> GetSupplierReportAsync(PartyReportRequest request)
+    {
+        var pageSize = Math.Clamp(request.PageSize <= 0 ? 10 : request.PageSize, 1, 10_000);
+        var pageNumber = Math.Max(request.PageNumber, 1);
+
+        var purchases = _context.Purchases.AsNoTracking().AsQueryable();
+        if (request.FromDate.HasValue)
+            purchases = purchases.Where(p => p.PurchaseDate >= request.FromDate.Value.Date);
+        if (request.ToDate.HasValue)
+            purchases = purchases.Where(p => p.PurchaseDate < request.ToDate.Value.Date.AddDays(1));
+
+        var purchaseRows = await purchases
+            .GroupBy(p => p.SupplierId)
+            .Select(g => new
+            {
+                SupplierId = g.Key,
+                Count = g.Count(),
+                Total = g.Sum(p => p.TotalAmount)
+            })
+            .ToListAsync();
+
+        var bySupplier = purchaseRows.ToDictionary(x => x.SupplierId);
+
+        var suppliers = _context.Suppliers.AsNoTracking().Where(s => !s.IsDeleted);
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var search = request.Search.Trim();
+            suppliers = suppliers.Where(s =>
+                s.Name.Contains(search) ||
+                s.CompanyName.Contains(search) ||
+                s.Mobile.Contains(search) ||
+                (s.Gstin != null && s.Gstin.Contains(search)));
+        }
+
+        var list = await suppliers.OrderBy(s => s.CompanyName).ThenBy(s => s.Name).ToListAsync();
+        var items = list.Select(s =>
+        {
+            bySupplier.TryGetValue(s.Id, out var group);
+            return new SupplierReportItemDto
+            {
+                SupplierId = s.Id,
+                Name = s.Name,
+                CompanyName = s.CompanyName,
+                Mobile = s.Mobile,
+                Gstin = s.Gstin,
+                PurchaseCount = group?.Count ?? 0,
+                Purchased = group?.Total ?? 0
+            };
+        }).ToList();
+
+        var totalPurchased = items.Sum(i => i.Purchased);
+        var totalRecords = items.Count;
+        var page = items.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+
+        return new SupplierReportResponse
+        {
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalRecords = totalRecords,
+            TotalPages = (int)Math.Ceiling(totalRecords / (double)pageSize),
+            TotalPurchased = totalPurchased,
+            Items = page
+        };
+    }
+
+    public async Task<PaymentReportResponse> GetPaymentReportAsync(PaymentReportRequest request)
+    {
+        var pageSize = Math.Clamp(request.PageSize <= 0 ? 10 : request.PageSize, 1, 10_000);
+        var pageNumber = Math.Max(request.PageNumber, 1);
+
+        var query = _context.Payments.AsNoTracking()
+            .Where(p => !p.IsVoided);
+
+        if (request.FromDate.HasValue)
+            query = query.Where(p => p.PaymentDate >= request.FromDate.Value.Date);
+        if (request.ToDate.HasValue)
+            query = query.Where(p => p.PaymentDate < request.ToDate.Value.Date.AddDays(1));
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var search = request.Search.Trim();
+            query = query.Where(p =>
+                p.Sale.InvoiceNumber.Contains(search) ||
+                p.Sale.Customer.Name.Contains(search) ||
+                (p.ReceiptNumber != null && p.ReceiptNumber.Contains(search)) ||
+                (p.Reference != null && p.Reference.Contains(search)));
+        }
+
+        var totalRecords = await query.CountAsync();
+        var totalCollected = await query.SumAsync(p => (decimal?)p.Amount) ?? 0;
+
+        var items = await query
+            .OrderByDescending(p => p.PaymentDate)
+            .ThenByDescending(p => p.Id)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(p => new PaymentReportItemDto
+            {
+                PaymentId = p.Id,
+                ReceiptNumber = p.ReceiptNumber,
+                InvoiceNumber = p.Sale.InvoiceNumber,
+                CustomerName = p.Sale.Customer.Name,
+                PaymentDate = p.PaymentDate,
+                Method = p.Method.ToString(),
+                Amount = p.Amount,
+                Reference = p.Reference
+            })
+            .ToListAsync();
+
+        return new PaymentReportResponse
+        {
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalRecords = totalRecords,
+            TotalPages = (int)Math.Ceiling(totalRecords / (double)pageSize),
+            TotalCollected = totalCollected,
             Items = items
         };
     }

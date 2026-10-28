@@ -199,8 +199,8 @@ public class PdfExportService : IPdfExportService
                             table.Cell().Text(item.InvoiceNumber);
                             table.Cell().Text(item.SaleDate.ToString("dd-MM-yyyy"));
                             table.Cell().Text(item.SaleAmount.ToString("0.00"));
-                            table.Cell().Text(item.PurchaseCost.ToString("0.00"));
-                            table.Cell().Text(item.Profit.ToString("0.00"));
+                            table.Cell().Text(item.CostOfGoodsSold?.ToString("0.00") ?? "incomplete");
+                            table.Cell().Text(item.Profit?.ToString("0.00") ?? "incomplete");
                         }
                     });
 
@@ -208,9 +208,14 @@ public class PdfExportService : IPdfExportService
                     .Column(column =>
                     {
                         column.Item().AlignRight().Text($"Total Sales : {report.TotalSales:0.00}");
-                        column.Item().AlignRight().Text($"Purchase Cost : {report.TotalPurchaseCost:0.00}");
-                        column.Item().AlignRight().Text($"Gross Profit : {report.GrossProfit:0.00}");
-                        column.Item().AlignRight().Text($"Profit % : {report.ProfitPercentage:0.00}%");
+                        column.Item().AlignRight().Text(report.CostComplete
+                            ? $"Cost of goods sold : {report.CostOfGoodsSold:0.00}"
+                            : "Cost of goods sold : incomplete");
+                        column.Item().AlignRight().Text(report.GrossProfit.HasValue
+                            ? $"Gross Profit : {report.GrossProfit:0.00}"
+                            : "Gross profit : not shown (cost missing on some lines)");
+                        if (!string.IsNullOrEmpty(report.Limitation))
+                            column.Item().Text(report.Limitation).FontSize(9);
                     });
             });
         }).GeneratePdf();

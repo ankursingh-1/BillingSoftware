@@ -4,11 +4,13 @@ import { toast } from "react-toastify";
 
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import Pagination from "../../components/common/Pagination";
+import ProductImportModal from "../../components/products/ProductImportModal";
 
 import { LOW_STOCK_THRESHOLD } from "../../constants/inventory";
 import { useDebounce } from "../../hooks/useDebounce";
 import {
     deleteProduct,
+    exportProducts,
     searchProducts,
 } from "../../services/products/productService";
 import { getApiErrorMessage } from "../../utils/apiError";
@@ -53,6 +55,8 @@ function ProductsPage() {
 
     const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
     const [deleting, setDeleting] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -143,6 +147,37 @@ function ProductsPage() {
                         <i className="bi bi-grid me-2"></i>
                         Categories
                     </Link>
+
+                    <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        disabled={exporting}
+                        onClick={() => {
+                            setExporting(true);
+                            void exportProducts()
+                                .catch((err) =>
+                                    toast.error(
+                                        getApiErrorMessage(
+                                            err,
+                                            "Unable to export products."
+                                        )
+                                    )
+                                )
+                                .finally(() => setExporting(false));
+                        }}
+                    >
+                        <i className="bi bi-download me-2"></i>
+                        Export Excel
+                    </button>
+
+                    <button
+                        type="button"
+                        className="btn btn-outline-primary"
+                        onClick={() => setImporting(true)}
+                    >
+                        <i className="bi bi-upload me-2"></i>
+                        Import Excel
+                    </button>
 
                     <Link to="/products/new" className="btn btn-primary">
                         <i className="bi bi-plus-lg me-2"></i>
@@ -404,6 +439,13 @@ function ProductsPage() {
                     </>
                 )}
             </div>
+
+            {importing && (
+                <ProductImportModal
+                    onClose={() => setImporting(false)}
+                    onImported={() => setReloadKey((key) => key + 1)}
+                />
+            )}
 
             <ConfirmDialog
                 show={deleteTarget !== null}

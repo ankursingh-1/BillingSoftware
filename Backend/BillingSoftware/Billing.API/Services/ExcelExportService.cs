@@ -1,4 +1,5 @@
-﻿using Billing.Application.DTOs.Reports;
+﻿using Billing.API.Services.ProductImport;
+using Billing.Application.DTOs.Reports;
 using Billing.Application.Interfaces;
 using ClosedXML.Excel;
 using System.IO;
@@ -7,6 +8,11 @@ namespace Billing.API.Services;
 
 public class ExcelExportService : IExcelExportService
 {
+    private static void Text(IXLCell cell, string? value)
+    {
+        ProductImportWorkbook.WriteText(cell, value);
+    }
+
     public byte[] ExportSalesReport(SalesReportResponse report)
     {
         using var workbook = new XLWorkbook();
@@ -24,8 +30,8 @@ public class ExcelExportService : IExcelExportService
         int row = 4;
         foreach (var item in report.Items)
         {
-            worksheet.Cell(row, 1).Value = item.InvoiceNumber;
-            worksheet.Cell(row, 2).Value = item.CustomerName;
+            Text(worksheet.Cell(row, 1), item.InvoiceNumber);
+            Text(worksheet.Cell(row, 2), item.CustomerName);
             worksheet.Cell(row, 3).Value = item.SaleDate;
             worksheet.Cell(row, 3).Style.DateFormat.Format = "dd-MM-yyyy";
             worksheet.Cell(row, 4).Value = item.TotalAmount;
@@ -58,8 +64,8 @@ public class ExcelExportService : IExcelExportService
         int row = 4;
         foreach (var item in report.Items)
         {
-            worksheet.Cell(row, 1).Value = item.PurchaseNumber;
-            worksheet.Cell(row, 2).Value = item.SupplierName;
+            Text(worksheet.Cell(row, 1), item.PurchaseNumber);
+            Text(worksheet.Cell(row, 2), item.SupplierName);
             worksheet.Cell(row, 3).Value = item.PurchaseDate;
             worksheet.Cell(row, 3).Style.DateFormat.Format = "dd-MM-yyyy";
             worksheet.Cell(row, 4).Value = item.TotalAmount;
@@ -93,8 +99,8 @@ public class ExcelExportService : IExcelExportService
         int row = 4;
         foreach (var item in report.Items)
         {
-            worksheet.Cell(row, 1).Value = item.ProductName;
-            worksheet.Cell(row, 2).Value = item.SKU;
+            Text(worksheet.Cell(row, 1), item.ProductName);
+            Text(worksheet.Cell(row, 2), item.SKU);
             worksheet.Cell(row, 3).Value = item.CurrentStock;
             worksheet.Cell(row, 4).Value = item.PurchasePrice;
             worksheet.Cell(row, 5).Value = item.SellingPrice;
@@ -116,29 +122,185 @@ public class ExcelExportService : IExcelExportService
         worksheet.Cell(3, 1).Value = "Invoice";
         worksheet.Cell(3, 2).Value = "Sale Date";
         worksheet.Cell(3, 3).Value = "Sale Amount";
-        worksheet.Cell(3, 4).Value = "Purchase Cost";
+        worksheet.Cell(3, 4).Value = "Cost of goods sold";
         worksheet.Cell(3, 5).Value = "Profit";
         worksheet.Range(3, 1, 3, 5).Style.Font.Bold = true;
         int row = 4;
         foreach (var item in report.Items)
         {
-            worksheet.Cell(row, 1).Value = item.InvoiceNumber;
+            Text(worksheet.Cell(row, 1), item.InvoiceNumber);
             worksheet.Cell(row, 2).Value = item.SaleDate;
             worksheet.Cell(row, 2).Style.DateFormat.Format = "dd-MM-yyyy";
             worksheet.Cell(row, 3).Value = item.SaleAmount;
             worksheet.Cell(row, 3).Style.NumberFormat.Format = "#,##0.00";
-            worksheet.Cell(row, 4).Value = item.PurchaseCost;
-            worksheet.Cell(row, 4).Style.NumberFormat.Format = "#,##0.00";
-            worksheet.Cell(row, 5).Value = item.Profit;
-            worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.00";
+            if (item.CostOfGoodsSold.HasValue)
+            {
+                worksheet.Cell(row, 4).Value = item.CostOfGoodsSold.Value;
+                worksheet.Cell(row, 4).Style.NumberFormat.Format = "#,##0.00";
+            }
+            else
+            {
+                worksheet.Cell(row, 4).Value = "incomplete";
+            }
+
+            if (item.Profit.HasValue)
+            {
+                worksheet.Cell(row, 5).Value = item.Profit.Value;
+                worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.00";
+            }
+            else
+            {
+                worksheet.Cell(row, 5).Value = "incomplete";
+            }
+
             row++;
         }
-        worksheet.Cell(row + 1, 4).Value = "Gross Profit";
+        worksheet.Cell(row + 1, 4).Value = report.CostComplete ? "Gross Profit" : "Gross profit unavailable";
         worksheet.Cell(row + 1, 4).Style.Font.Bold = true;
-        worksheet.Cell(row + 1, 5).Value = report.GrossProfit;
-        worksheet.Cell(row + 1, 5).Style.Font.Bold = true;
-        worksheet.Cell(row + 1, 5).Style.NumberFormat.Format = "#,##0.00";
+        if (report.GrossProfit.HasValue)
+        {
+            worksheet.Cell(row + 1, 5).Value = report.GrossProfit.Value;
+            worksheet.Cell(row + 1, 5).Style.NumberFormat.Format = "#,##0.00";
+        }
+        if (!string.IsNullOrEmpty(report.Limitation))
+            Text(worksheet.Cell(row + 3, 1), report.Limitation);
         worksheet.Columns().AdjustToContents();
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    public byte[] ExportExpenseReport(ExpenseReportResponse report)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Expenses");
+        sheet.Cell(1, 1).Value = "Expense Report";
+        sheet.Cell(1, 1).Style.Font.Bold = true;
+        sheet.Cell(3, 1).Value = "Date";
+        sheet.Cell(3, 2).Value = "Title";
+        sheet.Cell(3, 3).Value = "Category";
+        sheet.Cell(3, 4).Value = "Amount";
+        sheet.Range(3, 1, 3, 4).Style.Font.Bold = true;
+        var row = 4;
+        foreach (var item in report.Items)
+        {
+            sheet.Cell(row, 1).Value = item.ExpenseDate;
+            sheet.Cell(row, 1).Style.DateFormat.Format = "dd-MM-yyyy";
+            Text(sheet.Cell(row, 2), item.Title);
+            Text(sheet.Cell(row, 3), item.Category);
+            sheet.Cell(row, 4).Value = item.Amount;
+            sheet.Cell(row, 4).Style.NumberFormat.Format = "#,##0.00";
+            row++;
+        }
+        sheet.Cell(row + 1, 3).Value = "Grand Total";
+        sheet.Cell(row + 1, 3).Style.Font.Bold = true;
+        sheet.Cell(row + 1, 4).Value = report.GrandTotal;
+        sheet.Cell(row + 1, 4).Style.NumberFormat.Format = "#,##0.00";
+        sheet.Columns().AdjustToContents();
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    public byte[] ExportCustomerReport(CustomerReportResponse report)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Customers");
+        sheet.Cell(1, 1).Value = "Customer Report";
+        sheet.Cell(1, 1).Style.Font.Bold = true;
+        sheet.Cell(3, 1).Value = "Customer";
+        sheet.Cell(3, 2).Value = "Mobile";
+        sheet.Cell(3, 3).Value = "GSTIN";
+        sheet.Cell(3, 4).Value = "Invoices";
+        sheet.Cell(3, 5).Value = "Billed";
+        sheet.Cell(3, 6).Value = "Outstanding";
+        sheet.Range(3, 1, 3, 6).Style.Font.Bold = true;
+        var row = 4;
+        foreach (var item in report.Items)
+        {
+            Text(sheet.Cell(row, 1), item.Name);
+            Text(sheet.Cell(row, 2), item.Mobile);
+            Text(sheet.Cell(row, 3), item.Gstin);
+            sheet.Cell(row, 4).Value = item.InvoiceCount;
+            sheet.Cell(row, 5).Value = item.Billed;
+            sheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.00";
+            sheet.Cell(row, 6).Value = item.Outstanding;
+            sheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.00";
+            row++;
+        }
+        sheet.Cell(row + 1, 5).Value = report.TotalBilled;
+        sheet.Cell(row + 1, 6).Value = report.TotalOutstanding;
+        sheet.Columns().AdjustToContents();
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    public byte[] ExportSupplierReport(SupplierReportResponse report)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Suppliers");
+        sheet.Cell(1, 1).Value = "Supplier Report";
+        sheet.Cell(1, 1).Style.Font.Bold = true;
+        Text(sheet.Cell(2, 1), report.Limitation);
+        sheet.Cell(3, 1).Value = "Supplier";
+        sheet.Cell(3, 2).Value = "Company";
+        sheet.Cell(3, 3).Value = "Mobile";
+        sheet.Cell(3, 4).Value = "GSTIN";
+        sheet.Cell(3, 5).Value = "Purchases";
+        sheet.Cell(3, 6).Value = "Purchased";
+        sheet.Range(3, 1, 3, 6).Style.Font.Bold = true;
+        var row = 4;
+        foreach (var item in report.Items)
+        {
+            Text(sheet.Cell(row, 1), item.Name);
+            Text(sheet.Cell(row, 2), item.CompanyName);
+            Text(sheet.Cell(row, 3), item.Mobile);
+            Text(sheet.Cell(row, 4), item.Gstin);
+            sheet.Cell(row, 5).Value = item.PurchaseCount;
+            sheet.Cell(row, 6).Value = item.Purchased;
+            sheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.00";
+            row++;
+        }
+        sheet.Cell(row + 1, 6).Value = report.TotalPurchased;
+        sheet.Columns().AdjustToContents();
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    public byte[] ExportPaymentReport(PaymentReportResponse report)
+    {
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Collections");
+        sheet.Cell(1, 1).Value = "Payment / collection report";
+        sheet.Cell(1, 1).Style.Font.Bold = true;
+        sheet.Cell(3, 1).Value = "Receipt";
+        sheet.Cell(3, 2).Value = "Invoice";
+        sheet.Cell(3, 3).Value = "Customer";
+        sheet.Cell(3, 4).Value = "Date";
+        sheet.Cell(3, 5).Value = "Method";
+        sheet.Cell(3, 6).Value = "Amount";
+        sheet.Cell(3, 7).Value = "Reference";
+        sheet.Range(3, 1, 3, 7).Style.Font.Bold = true;
+        var row = 4;
+        foreach (var item in report.Items)
+        {
+            Text(sheet.Cell(row, 1), item.ReceiptNumber);
+            Text(sheet.Cell(row, 2), item.InvoiceNumber);
+            Text(sheet.Cell(row, 3), item.CustomerName);
+            sheet.Cell(row, 4).Value = item.PaymentDate;
+            sheet.Cell(row, 4).Style.DateFormat.Format = "dd-MM-yyyy";
+            Text(sheet.Cell(row, 5), item.Method);
+            sheet.Cell(row, 6).Value = item.Amount;
+            sheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.00";
+            Text(sheet.Cell(row, 7), item.Reference);
+            row++;
+        }
+        sheet.Cell(row + 1, 5).Value = "Total collected";
+        sheet.Cell(row + 1, 6).Value = report.TotalCollected;
+        sheet.Cell(row + 1, 6).Style.NumberFormat.Format = "#,##0.00";
+        sheet.Columns().AdjustToContents();
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         return stream.ToArray();

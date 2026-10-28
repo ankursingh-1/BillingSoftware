@@ -8,7 +8,12 @@
         public decimal TotalPurchase { get; set; }
         public decimal TodayPurchase { get; set; }
         public decimal MonthlyPurchase { get; set; }
-        public decimal GrossProfit { get; set; }
+        /// <summary>
+        /// Gross profit from sale-line CostPrice snapshots (not sales minus purchases).
+        /// Null when any included line is missing cost.
+        /// </summary>
+        public decimal? GrossProfit { get; set; }
+        public bool GrossProfitComplete { get; set; }
         public int TotalProducts { get; set; }
         public int TotalCustomers { get; set; }
         public int TotalSuppliers { get; set; }

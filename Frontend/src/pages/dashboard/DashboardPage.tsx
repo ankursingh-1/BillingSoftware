@@ -169,17 +169,18 @@ function DashboardPage() {
                     color="#ea580c"
                 />
 
-                {/*
-                    NOTE: the backend computes this as total sales minus total
-                    purchases. That is NOT true gross profit (purchases include
-                    unsold inventory; no cost of goods sold is stored on sales).
-                    Labelled accordingly until COGS-based profit is implemented.
-                */}
                 <StatCard
-                    title="Sales − Purchases"
-                    value={`₹${(
-                        summary?.grossProfit ?? 0
-                    ).toFixed(2)}`}
+                    title={
+                        summary?.grossProfitComplete
+                            ? "Gross profit (this month)"
+                            : "Gross profit (incomplete)"
+                    }
+                    value={
+                        summary?.grossProfitComplete &&
+                        summary.grossProfit !== null
+                            ? `₹${summary.grossProfit.toFixed(2)}`
+                            : "Unavailable"
+                    }
                     icon="bi-graph-up-arrow"
                     color="#9333ea"
                 />

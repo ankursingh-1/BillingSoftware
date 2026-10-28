@@ -9,6 +9,7 @@ interface ModalProps {
     footer?: ReactNode;
     /** When true the modal cannot be dismissed (e.g. while saving). */
     busy?: boolean;
+    size?: "md" | "lg" | "xl";
 }
 
 /** Bootstrap-styled modal controlled by React (no Bootstrap JS needed). */
@@ -19,6 +20,7 @@ function Modal({
     children,
     footer,
     busy = false,
+    size = "md",
 }: ModalProps) {
     const titleId = useId();
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -85,7 +87,15 @@ function Modal({
                 tabIndex={-1}
                 onMouseDown={handleBackdropClick}
             >
-                <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                <div
+                    className={`modal-dialog modal-dialog-centered modal-dialog-scrollable${
+                        size === "lg"
+                            ? " modal-lg"
+                            : size === "xl"
+                              ? " modal-xl"
+                              : ""
+                    }`}
+                >
                     <div
                         className="modal-content"
                         ref={dialogRef}

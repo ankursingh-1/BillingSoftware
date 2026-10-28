@@ -1,5 +1,6 @@
 ﻿using Billing.API.Models;
 using Billing.API.Services;
+using Billing.API.Services.ProductImport;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,10 +12,12 @@ namespace Billing.API.Controllers;
 public class ProductsController : ControllerBase
 {
     private readonly ProductService _service;
+    private readonly ProductImportService _import;
 
-    public ProductsController(ProductService service)
+    public ProductsController(ProductService service, ProductImportService import)
     {
         _service = service;
+        _import = import;
     }
 
     // POST: api/products
@@ -41,7 +44,7 @@ public class ProductsController : ControllerBase
     }
 
     // GET: api/products/1
-    [HttpGet("{id}")]
+    [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
         var product = await _service.GetByIdAsync(id);
@@ -53,7 +56,7 @@ public class ProductsController : ControllerBase
     }
 
     // PUT: api/products/1
-    [HttpPut("{id}")]
+    [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, ProductDto dto)
     {
         await _service.UpdateAsync(id, dto);
@@ -66,7 +69,7 @@ public class ProductsController : ControllerBase
     }
 
     // DELETE: api/products/1
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
         await _service.DeleteAsync(id);
@@ -83,5 +86,48 @@ public class ProductsController : ControllerBase
         var result = await _service.SearchAsync(request);
 
         return Ok(result);
+    }
+
+    [HttpGet("import/template")]
+    public async Task<IActionResult> ImportTemplate()
+    {
+        var bytes = await _import.TemplateAsync();
+        return File(bytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "product-import-template.xlsx");
+    }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> Export()
+    {
+        var bytes = await _import.ExportAsync();
+        return File(bytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "products.xlsx");
+    }
+
+    [HttpPost("import/preview")]
+    [RequestSizeLimit(ProductImportWorkbook.MaxFileBytes + 64 * 1024)]
+    public async Task<IActionResult> ImportPreview(IFormFile file)
+    {
+        return Ok(await _import.PreviewAsync(file));
+    }
+
+    [HttpPost("import")]
+    [RequestSizeLimit(ProductImportWorkbook.MaxFileBytes + 64 * 1024)]
+    public async Task<IActionResult> Import(IFormFile file)
+    {
+        var result = await _import.ImportAsync(file);
+        return Ok(result);
+    }
+
+    [HttpPost("import/error-report")]
+    [RequestSizeLimit(ProductImportWorkbook.MaxFileBytes + 64 * 1024)]
+    public async Task<IActionResult> ImportErrorReport(IFormFile file)
+    {
+        var bytes = await _import.ErrorReportAsync(file);
+        return File(bytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "product-import-errors.xlsx");
     }
 }

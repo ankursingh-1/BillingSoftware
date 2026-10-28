@@ -35,6 +35,12 @@ namespace Billing.API.Controllers
             return Ok(await _expenseService.GetAllAsync());
         }
 
+        [HttpPost("search")]
+        public async Task<IActionResult> Search(ExpenseSearchRequest request)
+        {
+            return Ok(await _expenseService.SearchAsync(request));
+        }
+
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {
