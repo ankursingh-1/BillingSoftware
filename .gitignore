@@ -25,3 +25,7 @@ appsettings.Production.json
 *.pfx
 *.pem
 *.key
+
+# Runtime file storage (logos etc.) - persistent data, never committed
+App_Data/
+Storage/
