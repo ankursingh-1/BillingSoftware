@@ -15,6 +15,7 @@ export interface Product {
     taxId: number | null;
     taxName: string | null;
     taxPercentage: number | null;
+    hsnCode: string | null;
 }
 
 /**
@@ -31,6 +32,7 @@ export interface SaveProductRequest {
     brandId: number | null;
     unitId: number | null;
     taxId: number | null;
+    hsnCode: string | null;
 }
 
 export interface ProductSearchRequest {

@@ -46,6 +46,7 @@ const FIELD_NAMES: (keyof SaveProductRequest)[] = [
     "brandId",
     "unitId",
     "taxId",
+    "hsnCode",
 ];
 
 interface SelectOption {
@@ -95,6 +96,7 @@ function ProductForm({ product, lookups }: ProductFormProps) {
             brandId: product?.brandId ?? null,
             unitId: product?.unitId ?? null,
             taxId: product?.taxId ?? null,
+            hsnCode: product?.hsnCode ?? "",
         },
     });
 
@@ -132,6 +134,7 @@ function ProductForm({ product, lookups }: ProductFormProps) {
             ...values,
             name: values.name.trim(),
             sku: values.sku.trim(),
+            hsnCode: values.hsnCode?.trim() ? values.hsnCode.trim() : null,
             // Stock is only used as opening stock on create; the server
             // ignores it on update.
             stock: product ? product.stock : values.stock,
@@ -373,6 +376,38 @@ function ProductForm({ product, lookups }: ProductFormProps) {
                         {errors.taxId && (
                             <div className="invalid-feedback" role="alert">
                                 {errors.taxId.message}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="col-md-6 col-lg-3">
+                        <label
+                            htmlFor="product-hsn"
+                            className="form-label"
+                        >
+                            HSN code
+                        </label>
+
+                        <input
+                            id="product-hsn"
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={8}
+                            autoComplete="off"
+                            className={fieldClass(!!errors.hsnCode)}
+                            aria-invalid={errors.hsnCode ? "true" : "false"}
+                            {...register("hsnCode", {
+                                validate: (value) =>
+                                    !value ||
+                                    value.trim().length === 0 ||
+                                    /^(\d{4}|\d{6}|\d{8})$/.test(value.trim()) ||
+                                    "HSN must be 4, 6 or 8 digits.",
+                            })}
+                        />
+
+                        {errors.hsnCode && (
+                            <div className="invalid-feedback" role="alert">
+                                {errors.hsnCode.message}
                             </div>
                         )}
                     </div>

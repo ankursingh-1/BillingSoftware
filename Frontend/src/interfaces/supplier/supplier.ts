@@ -6,6 +6,9 @@ export interface Supplier {
     mobile: string;
     email: string | null;
     address: string | null;
+    state: string | null;
+    stateCode: string | null;
+    gstin: string | null;
 }
 
 // Body for POST /Suppliers and PUT /Suppliers/{id}.
@@ -16,6 +19,8 @@ export interface SaveSupplierRequest {
     mobile: string;
     email: string | null;
     address: string | null;
+    stateCode: string | null;
+    gstin: string | null;
 }
 
 // Matches Billing.API.Models.SupplierSearchRequest

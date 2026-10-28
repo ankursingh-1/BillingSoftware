@@ -20,3 +20,21 @@ export interface Tax {
     description: string | null;
     isActive: boolean;
 }
+
+export interface GstState {
+    code: string;
+    name: string;
+}
+
+export interface PaymentMethodOption {
+    value: PaymentMethod;
+    label: string;
+}
+
+export type PaymentMethod =
+    | "Cash"
+    | "Upi"
+    | "Card"
+    | "BankTransfer"
+    | "Cheque"
+    | "Other";

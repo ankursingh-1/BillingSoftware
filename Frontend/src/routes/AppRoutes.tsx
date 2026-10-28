@@ -14,7 +14,17 @@ import ProductFormPage from "../pages/products/ProductFormPage";
 import CategoriesPage from "../pages/categories/CategoriesPage";
 import CustomersPage from "../pages/customers/CustomersPage";
 import SuppliersPage from "../pages/suppliers/SuppliersPage";
+import SalesPage from "../pages/sales/SalesPage";
+import NewSalePage from "../pages/sales/NewSalePage";
+import SaleDetailPage from "../pages/sales/SaleDetailPage";
+import PurchasesPage from "../pages/purchases/PurchasesPage";
+import NewPurchasePage from "../pages/purchases/NewPurchasePage";
+import PurchaseDetailPage from "../pages/purchases/PurchaseDetailPage";
+import InventoryPage from "../pages/inventory/InventoryPage";
+import ReturnsPage from "../pages/returns/ReturnsPage";
+import ReturnDetailPage from "../pages/returns/ReturnDetailPage";
 
+import AdminRoute from "./AdminRoute";
 import ProtectedRoute from "./ProtectedRoute";
 
 function HomeRedirect() {
@@ -94,6 +104,70 @@ export default function AppRoutes() {
                     <Route
                         path="/suppliers"
                         element={<SuppliersPage />}
+                    />
+
+                    {/* Sales */}
+                    <Route
+                        path="/sales"
+                        element={<SalesPage />}
+                    />
+                    <Route
+                        path="/sales/new"
+                        element={<NewSalePage />}
+                    />
+                    <Route
+                        path="/sales/:id"
+                        element={<SaleDetailPage />}
+                    />
+
+                    {/* Purchases (Admin) */}
+                    <Route
+                        path="/purchases"
+                        element={
+                            <AdminRoute>
+                                <PurchasesPage />
+                            </AdminRoute>
+                        }
+                    />
+                    <Route
+                        path="/purchases/new"
+                        element={
+                            <AdminRoute>
+                                <NewPurchasePage />
+                            </AdminRoute>
+                        }
+                    />
+                    <Route
+                        path="/purchases/:id"
+                        element={
+                            <AdminRoute>
+                                <PurchaseDetailPage />
+                            </AdminRoute>
+                        }
+                    />
+
+                    {/* Inventory */}
+                    <Route
+                        path="/inventory"
+                        element={<InventoryPage />}
+                    />
+
+                    {/* Returns */}
+                    <Route
+                        path="/returns"
+                        element={<ReturnsPage />}
+                    />
+                    <Route
+                        path="/returns/sales/:id"
+                        element={<ReturnDetailPage kind="sales" />}
+                    />
+                    <Route
+                        path="/returns/purchases/:id"
+                        element={
+                            <AdminRoute>
+                                <ReturnDetailPage kind="purchases" />
+                            </AdminRoute>
+                        }
                     />
                 </Route>
 

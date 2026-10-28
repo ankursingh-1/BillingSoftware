@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
 
 import Modal from "../common/Modal";
+import PartyTaxFields from "./PartyTaxFields";
 
 import {
     createSupplier,
@@ -14,6 +15,7 @@ import {
 } from "../../utils/apiError";
 import {
     EMAIL_PATTERN,
+    GSTIN_PATTERN,
     MOBILE_PATTERN,
     emptyToNull,
     normalizeMobile,
@@ -27,6 +29,8 @@ interface SupplierFormValues {
     mobile: string;
     email: string;
     address: string;
+    stateCode: string;
+    gstin: string;
 }
 
 type FieldName = keyof SupplierFormValues;
@@ -38,6 +42,8 @@ const FIELD_LOOKUP: Record<string, FieldName> = {
     mobile: "mobile",
     email: "email",
     address: "address",
+    statecode: "stateCode",
+    gstin: "gstin",
 };
 
 interface SupplierFormModalProps {
@@ -68,6 +74,8 @@ function SupplierFormModal({
             mobile: supplier?.mobile ?? "",
             email: supplier?.email ?? "",
             address: supplier?.address ?? "",
+            stateCode: supplier?.stateCode ?? "",
+            gstin: supplier?.gstin ?? "",
         },
     });
 
@@ -78,6 +86,8 @@ function SupplierFormModal({
             mobile: normalizeMobile(values.mobile.trim()),
             email: emptyToNull(values.email),
             address: emptyToNull(values.address),
+            stateCode: emptyToNull(values.stateCode),
+            gstin: emptyToNull(values.gstin.toUpperCase()),
         };
 
         try {
@@ -302,6 +312,24 @@ function SupplierFormModal({
                         </div>
                     )}
                 </div>
+
+                <PartyTaxFields
+                    idPrefix="supplier"
+                    stateProps={register("stateCode")}
+                    gstinProps={register("gstin", {
+                        validate: (value) => {
+                            const gstin = value.trim().toUpperCase();
+
+                            return (
+                                gstin.length === 0 ||
+                                GSTIN_PATTERN.test(gstin) ||
+                                "Enter a valid 15-character GSTIN."
+                            );
+                        },
+                    })}
+                    stateError={errors.stateCode?.message}
+                    gstinError={errors.gstin?.message}
+                />
 
                 <div className="mb-0">
                     <label htmlFor="supplier-address" className="form-label">

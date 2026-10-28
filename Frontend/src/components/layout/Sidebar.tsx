@@ -1,7 +1,16 @@
 import { NavLink } from "react-router-dom";
 import { logout } from "../../services/auth/authService";
+import { isAdmin } from "../../utils/session";
 
-const menuItems = [
+interface MenuItem {
+    title: string;
+    path: string;
+    icon: string;
+    /** Hidden from non-admin users (the API enforces it as well). */
+    adminOnly?: boolean;
+}
+
+const menuItems: MenuItem[] = [
     {
         title: "Dashboard",
         path: "/dashboard",
@@ -18,14 +27,25 @@ const menuItems = [
         icon: "bi-grid",
     },
     {
-        title: "Purchase",
-        path: "/purchase",
+        title: "Inventory",
+        path: "/inventory",
+        icon: "bi-boxes",
+    },
+    {
+        title: "Purchases",
+        path: "/purchases",
         icon: "bi-cart-check",
+        adminOnly: true,
     },
     {
         title: "Sales",
         path: "/sales",
         icon: "bi-receipt",
+    },
+    {
+        title: "Returns",
+        path: "/returns",
+        icon: "bi-arrow-return-left",
     },
     {
         title: "Customers",
@@ -50,6 +70,9 @@ const menuItems = [
 ];
 
 function Sidebar() {
+    const admin = isAdmin();
+    const visibleItems = menuItems.filter((item) => admin || !item.adminOnly);
+
     return (
         <aside className="sidebar">
 
@@ -66,7 +89,7 @@ function Sidebar() {
 
             <ul className="sidebar-menu">
 
-                {menuItems.map((item) => (
+                {visibleItems.map((item) => (
                     <li key={item.title}>
 
                         <NavLink

@@ -358,6 +358,8 @@ function SuppliersPage() {
                     { label: "Contact name", value: viewTarget?.name },
                     { label: "Mobile", value: viewTarget?.mobile },
                     { label: "Email", value: viewTarget?.email },
+                    { label: "State", value: viewTarget?.state },
+                    { label: "GSTIN", value: viewTarget?.gstin },
                     { label: "Address", value: viewTarget?.address },
                 ]}
                 onClose={() => setViewTarget(null)}

@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
 
 import Modal from "../common/Modal";
+import PartyTaxFields from "./PartyTaxFields";
 
 import {
     createCustomer,
@@ -14,6 +15,7 @@ import {
 } from "../../utils/apiError";
 import {
     EMAIL_PATTERN,
+    GSTIN_PATTERN,
     MOBILE_PATTERN,
     emptyToNull,
     normalizeMobile,
@@ -26,11 +28,20 @@ interface CustomerFormValues {
     mobile: string;
     email: string;
     address: string;
+    stateCode: string;
+    gstin: string;
 }
 
 type FieldName = keyof CustomerFormValues;
 
-const FIELDS: FieldName[] = ["name", "mobile", "email", "address"];
+const FIELDS: FieldName[] = [
+    "name",
+    "mobile",
+    "email",
+    "address",
+    "stateCode",
+    "gstin",
+];
 
 interface CustomerFormModalProps {
     /** Customer being edited, or null to create a new one. */
@@ -59,6 +70,8 @@ function CustomerFormModal({
             mobile: customer?.mobile ?? "",
             email: customer?.email ?? "",
             address: customer?.address ?? "",
+            stateCode: customer?.stateCode ?? "",
+            gstin: customer?.gstin ?? "",
         },
     });
 
@@ -68,6 +81,8 @@ function CustomerFormModal({
             mobile: normalizeMobile(values.mobile.trim()),
             email: emptyToNull(values.email),
             address: emptyToNull(values.address),
+            stateCode: emptyToNull(values.stateCode),
+            gstin: emptyToNull(values.gstin.toUpperCase()),
         };
 
         try {
@@ -86,9 +101,11 @@ function CustomerFormModal({
             for (const [field, message] of Object.entries(
                 getFieldErrors(error)
             )) {
-                const key = field.toLowerCase() as FieldName;
+                const key = FIELDS.find(
+                    (name) => name.toLowerCase() === field.toLowerCase()
+                );
 
-                if (FIELDS.includes(key)) {
+                if (key) {
                     setError(key, { type: "server", message });
                     handled = true;
                 }
@@ -260,6 +277,24 @@ function CustomerFormModal({
                         </div>
                     )}
                 </div>
+
+                <PartyTaxFields
+                    idPrefix="customer"
+                    stateProps={register("stateCode")}
+                    gstinProps={register("gstin", {
+                        validate: (value) => {
+                            const gstin = value.trim().toUpperCase();
+
+                            return (
+                                gstin.length === 0 ||
+                                GSTIN_PATTERN.test(gstin) ||
+                                "Enter a valid 15-character GSTIN."
+                            );
+                        },
+                    })}
+                    stateError={errors.stateCode?.message}
+                    gstinError={errors.gstin?.message}
+                />
 
                 <div className="mb-0">
                     <label htmlFor="customer-address" className="form-label">
