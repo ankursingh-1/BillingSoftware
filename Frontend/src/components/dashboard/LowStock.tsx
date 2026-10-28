@@ -1,44 +1,76 @@
-function LowStock() {
+import type {
+    LowStockProduct,
+} from "../../interfaces/dashboard/dashboard";
+
+interface LowStockProps {
+    products: LowStockProduct[];
+}
+
+function LowStock({
+    products,
+}: LowStockProps) {
     return (
         <div className="dashboard-widget">
 
             <div className="widget-header">
-
-                <h5>Low Stock Products</h5>
-
+                <h5>Low &amp; Out-of-Stock Products</h5>
             </div>
 
-            <table className="table table-hover align-middle mb-0">
+            <div className="table-responsive">
 
-                <thead>
+                <table className="table table-hover align-middle mb-0">
 
-                    <tr>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Stock</th>
+                        </tr>
+                    </thead>
 
-                        <th>Product</th>
+                    <tbody>
 
-                        <th>Stock</th>
+                        {products.length === 0 ? (
+                            <tr>
+                                <td
+                                    colSpan={2}
+                                    className="text-center text-muted py-4"
+                                >
+                                    No Low Stock Products
+                                </td>
+                            </tr>
+                        ) : (
+                            products.map((product) => (
+                                <tr
+                                    key={
+                                        product.productId
+                                    }
+                                >
+                                    <td>
+                                        {product.productName}
+                                    </td>
 
-                    </tr>
+                                    <td>
+                                        <span
+                                            className={
+                                                product.currentStock <= 0
+                                                    ? "badge text-bg-danger"
+                                                    : "badge text-bg-warning"
+                                            }
+                                        >
+                                            {product.currentStock <= 0
+                                                ? "Out of stock"
+                                                : product.currentStock}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
 
-                </thead>
+                    </tbody>
 
-                <tbody>
+                </table>
 
-                    <tr>
-
-                        <td
-                            colSpan={2}
-                            className="text-center text-muted py-4"
-                        >
-                            No Product
-
-                        </td>
-
-                    </tr>
-
-                </tbody>
-
-            </table>
+            </div>
 
         </div>
     );

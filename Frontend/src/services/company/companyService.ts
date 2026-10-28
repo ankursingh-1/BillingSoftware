@@ -1,3 +1,5 @@
+import { isAxiosError } from "axios";
+
 import api from "../auth/authService";
 
 import type {
@@ -10,8 +12,8 @@ export const getCompany = async (): Promise<Company | null> => {
         const response = await api.get<Company>("/Company");
 
         return response.data;
-    } catch (error: any) {
-        if (error.response?.status === 404) {
+    } catch (error: unknown) {
+        if (isAxiosError(error) && error.response?.status === 404) {
             return null;
         }
 

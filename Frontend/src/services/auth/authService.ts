@@ -24,6 +24,7 @@ export const login = async (
 
 export const logout = (): void => {
     localStorage.removeItem("token");
+
     window.location.replace("/login");
 };
 

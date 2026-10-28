@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
+import { isAxiosError } from "axios";
 import { toast } from "react-toastify";
 
 import {
@@ -44,11 +45,7 @@ function CompanySettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        loadCompany();
-    }, []);
-
-    const loadCompany = async () => {
+    const loadCompany = useCallback(async () => {
         try {
             setLoading(true);
 
@@ -86,7 +83,12 @@ function CompanySettingsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        void loadCompany();
+    }, [loadCompany]);
 
     const handleChange = (
         e: ChangeEvent<
@@ -138,11 +140,14 @@ function CompanySettingsPage() {
             );
 
             await loadCompany();
-        } catch (error: any) {
-            if (error.response?.data?.errors) {
-                const errors =
-                    error.response.data.errors;
+        } catch (error: unknown) {
+            const errors = isAxiosError<{
+                errors?: Record<string, string[]>;
+            }>(error)
+                ? error.response?.data?.errors
+                : undefined;
 
+            if (errors) {
                 Object.values(errors)
                     .flat()
                     .forEach((message) => {

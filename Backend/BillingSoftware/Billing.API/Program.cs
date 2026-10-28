@@ -41,7 +41,6 @@ builder.Services.AddScoped<ISalesReturnService, SalesReturnService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IAppSettingService, AppSettingService>();
 
-
 var jwt = builder.Configuration.GetSection("JwtSettings");
 
 builder.Services
@@ -54,10 +53,8 @@ builder.Services
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-
             ValidIssuer = jwt["Issuer"],
             ValidAudience = jwt["Audience"],
-
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwt["Key"]!))
         };
@@ -66,10 +63,13 @@ builder.Services
 builder.Services.AddAuthorization();
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("Frontend", policy =>
+    options.AddPolicy("Frontend", policy => 
     {
         policy
-            .WithOrigins("http://localhost:5173")
+            .WithOrigins(
+                "http://localhost:5173",
+                "http://localhost:5177"
+            )
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

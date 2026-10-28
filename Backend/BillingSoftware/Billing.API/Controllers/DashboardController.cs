@@ -9,6 +9,8 @@ namespace Billing.API.Controllers;
 [Route("api/[controller]")]
 public class DashboardController : ControllerBase
 {
+    private const int MaxChartDays = 90;
+
     private readonly DashboardService _dashboardService;
 
     public DashboardController(DashboardService dashboardService)
@@ -59,6 +61,9 @@ public class DashboardController : ControllerBase
     [HttpGet("sales-chart")]
     public async Task<IActionResult> GetSalesChart([FromQuery] int days = 7)
     {
+        if (days < 1 || days > MaxChartDays)
+            return BadRequest($"days must be between 1 and {MaxChartDays}.");
+
         var result = await _dashboardService.GetSalesChartAsync(days);
 
         return Ok(result);
@@ -67,6 +72,9 @@ public class DashboardController : ControllerBase
     [HttpGet("purchase-chart")]
     public async Task<IActionResult> GetPurchaseChart([FromQuery] int days = 7)
     {
+        if (days < 1 || days > MaxChartDays)
+            return BadRequest($"days must be between 1 and {MaxChartDays}.");
+
         var result = await _dashboardService.GetPurchaseChartAsync(days);
 
         return Ok(result);
