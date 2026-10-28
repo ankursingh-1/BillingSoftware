@@ -1,4 +1,4 @@
-﻿using Billing.Domain.Entities;
+using Billing.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -25,5 +25,14 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
 
         builder.Property(x => x.Address)
                .HasMaxLength(500);
+
+        builder.Property(x => x.State)
+               .HasMaxLength(100);
+
+        builder.Property(x => x.StateCode)
+               .HasMaxLength(2);
+
+        builder.Property(x => x.Gstin)
+               .HasMaxLength(15);
     }
 }

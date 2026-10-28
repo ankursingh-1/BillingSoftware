@@ -1,4 +1,4 @@
-﻿using Billing.Domain.Common;
+using Billing.Domain.Common;
 
 namespace Billing.Domain.Entities;
 
@@ -9,4 +9,8 @@ public class Supplier : SoftDeleteEntity
     public string Mobile { get; set; } = string.Empty;
     public string? Email { get; set; }
     public string? Address { get; set; }
+
+    public string? State { get; set; }
+    public string? StateCode { get; set; }
+    public string? Gstin { get; set; }
 }

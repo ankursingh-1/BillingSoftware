@@ -83,6 +83,54 @@ namespace Billing.Persistence.Migrations
                     b.ToTable("AppSettings");
                 });
 
+            modelBuilder.Entity("Billing.Domain.Entities.AuditLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("EntityId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("EntityType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)");
+
+                    b.Property<DateTime>("OccurredOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserEmail")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurredOn");
+
+                    b.HasIndex("EntityType", "EntityId");
+
+                    b.ToTable("AuditLogs", (string)null);
+                });
+
             modelBuilder.Entity("Billing.Domain.Entities.Brand", b =>
                 {
                     b.Property<int>("Id")
@@ -251,6 +299,10 @@ namespace Billing.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("StateCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
                     b.Property<string>("TermsAndConditions")
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
@@ -290,6 +342,10 @@ namespace Billing.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("Gstin")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -306,12 +362,34 @@ namespace Billing.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("State")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("StateCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
                     b.Property<DateTime?>("modifieson")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
                     b.ToTable("Customers", (string)null);
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.DocumentSequence", b =>
+                {
+                    b.Property<string>("SeriesKey")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("LastNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("SeriesKey");
+
+                    b.ToTable("DocumentSequences", (string)null);
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.Expense", b =>
@@ -362,6 +440,72 @@ namespace Billing.Persistence.Migrations
                     b.ToTable("Expenses");
                 });
 
+            modelBuilder.Entity("Billing.Domain.Entities.Payment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsVoided")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Method")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("PaymentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SaleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("VoidedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("VoidedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("modifieson")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SaleId");
+
+                    b.ToTable("Payments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Payments_Amount_Positive", "[Amount] > 0");
+                        });
+                });
+
             modelBuilder.Entity("Billing.Domain.Entities.Product", b =>
                 {
                     b.Property<int>("Id")
@@ -381,6 +525,10 @@ namespace Billing.Persistence.Migrations
 
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("HsnCode")
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -428,7 +576,10 @@ namespace Billing.Persistence.Migrations
 
                     b.HasIndex("UnitId");
 
-                    b.ToTable("Products", (string)null);
+                    b.ToTable("Products", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Products_Stock_NonNegative", "[Stock] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.Purchase", b =>
@@ -439,11 +590,25 @@ namespace Billing.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal>("CgstTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("ClientRequestId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime2");
+
+                    b.Property<decimal>("IgstTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsInterState")
+                        .HasColumnType("bit");
 
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("nvarchar(max)");
@@ -460,8 +625,35 @@ namespace Billing.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<decimal>("RoundOff")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("SgstTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("SupplierGstin")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
                     b.Property<int>("SupplierId")
                         .HasColumnType("int");
+
+                    b.Property<string>("SupplierInvoiceNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("TaxCalculated")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("TaxTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(18, 2)
@@ -471,6 +663,15 @@ namespace Billing.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("[ClientRequestId] IS NOT NULL");
+
+                    b.HasIndex("PurchaseDate");
+
+                    b.HasIndex("PurchaseNumber")
+                        .IsUnique();
 
                     b.HasIndex("SupplierId");
 
@@ -485,6 +686,18 @@ namespace Billing.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal?>("CgstAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("HsnCode")
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<decimal?>("IgstAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
 
@@ -498,6 +711,26 @@ namespace Billing.Persistence.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("SgstAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("TaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("TaxName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal?>("TaxRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal?>("TaxableAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("Total")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -509,6 +742,153 @@ namespace Billing.Persistence.Migrations
                     b.HasIndex("PurchaseId");
 
                     b.ToTable("PurchaseItems", (string)null);
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.PurchaseReturn", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdjustmentNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("CgstTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("IgstTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PurchaseId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("RefundMethod")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("RefundReceived")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("ReturnDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReturnNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal>("SgstTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("modifieson")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PurchaseId");
+
+                    b.HasIndex("ReturnNumber")
+                        .IsUnique();
+
+                    b.ToTable("PurchaseReturns", (string)null);
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.PurchaseReturnItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("CgstAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("IgstAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PurchaseItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PurchaseReturnId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SgstAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("PurchaseItemId");
+
+                    b.HasIndex("PurchaseReturnId");
+
+                    b.ToTable("PurchaseReturnItems", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PurchaseReturnItems_Quantity_Positive", "[Quantity] > 0");
+                        });
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.Role", b =>
@@ -552,29 +932,81 @@ namespace Billing.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal>("CgstTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("ClientRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CompanyGstin")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("CompanyStateCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("CustomerGstin")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
                     b.Property<int>("CustomerId")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("IgstTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("InvoiceNumber")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<bool>("IsInterState")
+                        .HasColumnType("bit");
+
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PaymentTracked")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PlaceOfSupplyStateCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
 
                     b.Property<string>("Remarks")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<decimal>("RoundOff")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("SaleDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<decimal>("SgstTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("TaxCalculated")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("TaxTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(18, 2)
@@ -585,7 +1017,16 @@ namespace Billing.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("[ClientRequestId] IS NOT NULL");
+
                     b.HasIndex("CustomerId");
+
+                    b.HasIndex("InvoiceNumber")
+                        .IsUnique();
+
+                    b.HasIndex("SaleDate");
 
                     b.ToTable("Sales", (string)null);
                 });
@@ -597,6 +1038,22 @@ namespace Billing.Persistence.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("CgstAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("CostPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("HsnCode")
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<decimal?>("IgstAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
@@ -611,6 +1068,26 @@ namespace Billing.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("SgstAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("TaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("TaxName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal?>("TaxRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal?>("TaxableAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("Total")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -622,6 +1099,153 @@ namespace Billing.Persistence.Migrations
                     b.HasIndex("SaleId");
 
                     b.ToTable("SaleItems", (string)null);
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.SalesReturn", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("CgstTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("IgstTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("RefundAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("RefundMethod")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("ReturnDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReturnNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("SaleId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SgstTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("modifieson")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReturnNumber")
+                        .IsUnique();
+
+                    b.HasIndex("SaleId");
+
+                    b.ToTable("SalesReturns", (string)null);
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.SalesReturnItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("CgstAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("IgstAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SaleItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SalesReturnId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SgstAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("TaxableAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("SaleItemId");
+
+                    b.HasIndex("SalesReturnId");
+
+                    b.ToTable("SalesReturnItems", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_SalesReturnItems_Quantity_Positive", "[Quantity] > 0");
+                        });
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.StockLedger", b =>
@@ -704,6 +1328,10 @@ namespace Billing.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("Gstin")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -719,6 +1347,14 @@ namespace Billing.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("State")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("StateCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
 
                     b.Property<DateTime?>("modifieson")
                         .HasColumnType("datetime2");
@@ -877,6 +1513,17 @@ namespace Billing.Persistence.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("Billing.Domain.Entities.Payment", b =>
+                {
+                    b.HasOne("Billing.Domain.Entities.Sale", "Sale")
+                        .WithMany("Payments")
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Sale");
+                });
+
             modelBuilder.Entity("Billing.Domain.Entities.Product", b =>
                 {
                     b.HasOne("Billing.Domain.Entities.Brand", "Brand")
@@ -938,6 +1585,44 @@ namespace Billing.Persistence.Migrations
                     b.Navigation("Purchase");
                 });
 
+            modelBuilder.Entity("Billing.Domain.Entities.PurchaseReturn", b =>
+                {
+                    b.HasOne("Billing.Domain.Entities.Purchase", "Purchase")
+                        .WithMany()
+                        .HasForeignKey("PurchaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Purchase");
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.PurchaseReturnItem", b =>
+                {
+                    b.HasOne("Billing.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Billing.Domain.Entities.PurchaseItem", "PurchaseItem")
+                        .WithMany()
+                        .HasForeignKey("PurchaseItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Billing.Domain.Entities.PurchaseReturn", "PurchaseReturn")
+                        .WithMany("Items")
+                        .HasForeignKey("PurchaseReturnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("PurchaseItem");
+
+                    b.Navigation("PurchaseReturn");
+                });
+
             modelBuilder.Entity("Billing.Domain.Entities.Sale", b =>
                 {
                     b.HasOne("Billing.Domain.Entities.Customer", "Customer")
@@ -966,6 +1651,44 @@ namespace Billing.Persistence.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("Sale");
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.SalesReturn", b =>
+                {
+                    b.HasOne("Billing.Domain.Entities.Sale", "Sale")
+                        .WithMany()
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Sale");
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.SalesReturnItem", b =>
+                {
+                    b.HasOne("Billing.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Billing.Domain.Entities.SaleItem", "SaleItem")
+                        .WithMany()
+                        .HasForeignKey("SaleItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Billing.Domain.Entities.SalesReturn", "SalesReturn")
+                        .WithMany("Items")
+                        .HasForeignKey("SalesReturnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("SaleItem");
+
+                    b.Navigation("SalesReturn");
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.StockLedger", b =>
@@ -1010,6 +1733,11 @@ namespace Billing.Persistence.Migrations
                     b.Navigation("PurchaseItems");
                 });
 
+            modelBuilder.Entity("Billing.Domain.Entities.PurchaseReturn", b =>
+                {
+                    b.Navigation("Items");
+                });
+
             modelBuilder.Entity("Billing.Domain.Entities.Role", b =>
                 {
                     b.Navigation("Users");
@@ -1017,7 +1745,14 @@ namespace Billing.Persistence.Migrations
 
             modelBuilder.Entity("Billing.Domain.Entities.Sale", b =>
                 {
+                    b.Navigation("Payments");
+
                     b.Navigation("SaleItems");
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.SalesReturn", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.Tax", b =>

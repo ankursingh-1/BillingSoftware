@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,6 +14,9 @@ namespace Billing.Domain.Entities
         public decimal PurchasePrice { get; set; }
         public decimal SellingPrice { get; set; }
         public int Stock { get; set; }
+
+        /// <summary>HSN (goods) or SAC (services) code printed on tax invoices.</summary>
+        public string? HsnCode { get; set; }
         public int? CategoryId { get; set; }
         public Category? Category { get; set; }
         public int? BrandId { get; set; }

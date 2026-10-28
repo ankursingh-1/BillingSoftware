@@ -1,8 +1,3 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Billing.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -13,7 +8,11 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
 {
     public void Configure(EntityTypeBuilder<Product> builder)
     {
-        builder.ToTable("Products");
+        // Stock can never be negative, even if application code has a bug.
+        builder.ToTable("Products", table =>
+            table.HasCheckConstraint(
+                "CK_Products_Stock_NonNegative",
+                "[Stock] >= 0"));
 
         builder.HasKey(x => x.Id);
 
@@ -23,6 +22,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         builder.Property(x => x.SKU)
                .HasMaxLength(200);
+
+        builder.Property(x => x.HsnCode)
+               .HasMaxLength(8);
 
         builder.Property(x => x.PurchasePrice)
                .HasPrecision(18, 2);

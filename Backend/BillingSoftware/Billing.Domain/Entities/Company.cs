@@ -1,4 +1,4 @@
-﻿using Billing.Domain.Common;
+using Billing.Domain.Common;
 
 namespace Billing.Domain.Entities;
 
@@ -10,6 +10,9 @@ public class Company : BaseEntity
     public string? Address { get; set; }
     public string? City { get; set; }
     public string? State { get; set; }
+
+    /// <summary>Two-digit GST state code of the company (place of supply = this state for intra-state sales).</summary>
+    public string? StateCode { get; set; }
     public string? Country { get; set; }
     public string? Pincode { get; set; }
     public string? Phone { get; set; }

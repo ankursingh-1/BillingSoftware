@@ -1,4 +1,4 @@
-﻿using Billing.Domain.Entities;
+using Billing.Domain.Entities;
 using Billing.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -32,6 +32,13 @@ namespace Billing.Persistence.Context
         public DbSet<StockLedger> StockLedgers => Set<StockLedger>();
         public DbSet<Expense> Expenses => Set<Expense>();
         public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+        public DbSet<DocumentSequence> DocumentSequences => Set<DocumentSequence>();
+        public DbSet<Payment> Payments => Set<Payment>();
+        public DbSet<SalesReturn> SalesReturns => Set<SalesReturn>();
+        public DbSet<SalesReturnItem> SalesReturnItems => Set<SalesReturnItem>();
+        public DbSet<PurchaseReturn> PurchaseReturns => Set<PurchaseReturn>();
+        public DbSet<PurchaseReturnItem> PurchaseReturnItems => Set<PurchaseReturnItem>();
+        public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -1,4 +1,4 @@
-﻿using Billing.Domain.Entities;
+using Billing.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -16,8 +16,30 @@ public class SaleConfiguration : IEntityTypeConfiguration<Sale>
                .HasMaxLength(50)
                .IsRequired();
 
-        builder.Property(x => x.TotalAmount)
-               .HasPrecision(18, 2);
+        // The database, not application code, guarantees invoice numbers are unique.
+        builder.HasIndex(x => x.InvoiceNumber)
+               .IsUnique();
+
+        // Makes a retried / double-clicked submit idempotent.
+        builder.HasIndex(x => x.ClientRequestId)
+               .IsUnique()
+               .HasFilter("[ClientRequestId] IS NOT NULL");
+
+        builder.HasIndex(x => x.SaleDate);
+        builder.HasIndex(x => x.CustomerId);
+
+        builder.Property(x => x.TotalAmount).HasPrecision(18, 2);
+        builder.Property(x => x.Subtotal).HasPrecision(18, 2);
+        builder.Property(x => x.CgstTotal).HasPrecision(18, 2);
+        builder.Property(x => x.SgstTotal).HasPrecision(18, 2);
+        builder.Property(x => x.IgstTotal).HasPrecision(18, 2);
+        builder.Property(x => x.TaxTotal).HasPrecision(18, 2);
+        builder.Property(x => x.RoundOff).HasPrecision(18, 2);
+
+        builder.Property(x => x.PlaceOfSupplyStateCode).HasMaxLength(2);
+        builder.Property(x => x.CompanyStateCode).HasMaxLength(2);
+        builder.Property(x => x.CustomerGstin).HasMaxLength(15);
+        builder.Property(x => x.CompanyGstin).HasMaxLength(15);
 
         builder.Property(x => x.Remarks)
                .HasMaxLength(500);

@@ -1,4 +1,4 @@
-﻿using Billing.Domain.Entities;
+using Billing.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -30,6 +30,9 @@ namespace Billing.Persistence.Configurations
 
             builder.Property(x => x.State)
                    .HasMaxLength(100);
+
+            builder.Property(x => x.StateCode)
+                   .HasMaxLength(2);
 
             builder.Property(x => x.Country)
                    .HasMaxLength(100);
