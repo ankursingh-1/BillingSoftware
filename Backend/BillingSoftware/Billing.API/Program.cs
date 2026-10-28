@@ -12,6 +12,45 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// -------------------- Required configuration --------------------
+// Secrets are NOT stored in appsettings.json. They come from User Secrets
+// (Development) or environment variables (Production), e.g.
+//   JwtSettings__Key, ConnectionStrings__DefaultConnection
+// Fail fast with a clear message (never printing the values themselves).
+
+const int MinimumJwtKeyLength = 32; // HS256 needs at least 256 bits
+
+if (string.IsNullOrWhiteSpace(
+        builder.Configuration.GetConnectionString("DefaultConnection")))
+{
+    throw new InvalidOperationException(
+        "Missing configuration 'ConnectionStrings:DefaultConnection'. " +
+        "Set it with User Secrets (development) or the " +
+        "'ConnectionStrings__DefaultConnection' environment variable (production). " +
+        "See Documentation/Configuration.md.");
+}
+
+var jwtKey = builder.Configuration["JwtSettings:Key"];
+
+if (string.IsNullOrWhiteSpace(jwtKey) ||
+    Encoding.UTF8.GetByteCount(jwtKey) < MinimumJwtKeyLength)
+{
+    throw new InvalidOperationException(
+        $"Missing or too short configuration 'JwtSettings:Key' " +
+        $"(minimum {MinimumJwtKeyLength} bytes). Set it with User Secrets " +
+        "(development) or the 'JwtSettings__Key' environment variable " +
+        "(production). See Documentation/Configuration.md.");
+}
+
+foreach (var setting in new[] { "JwtSettings:Issuer", "JwtSettings:Audience" })
+{
+    if (string.IsNullOrWhiteSpace(builder.Configuration[setting]))
+    {
+        throw new InvalidOperationException(
+            $"Missing configuration '{setting}'.");
+    }
+}
+
 // -------------------- Services --------------------
 
 builder.Services.AddPersistence(builder.Configuration);
@@ -56,7 +95,7 @@ builder.Services
             ValidIssuer = jwt["Issuer"],
             ValidAudience = jwt["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwt["Key"]!))
+                Encoding.UTF8.GetBytes(jwtKey))
         };
     });
 

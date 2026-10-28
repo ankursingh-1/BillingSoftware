@@ -15,3 +15,13 @@ obj/
 
 # Logs
 *.log
+# Secrets / local configuration (never commit)
+.env
+.env.*
+!.env.example
+secrets.json
+appsettings.*.local.json
+appsettings.Production.json
+*.pfx
+*.pem
+*.key
