@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace Billing.API.Models;
 
@@ -28,6 +28,11 @@ public class ProductDto
     /// </summary>
     [Range(0, int.MaxValue, ErrorMessage = "Stock cannot be negative.")]
     public int Stock { get; set; }
+
+    /// <summary>HSN (goods) or SAC (services) code: 4, 6 or 8 digits. Printed on tax invoices.</summary>
+    [RegularExpression(@"^([0-9]{4}|[0-9]{6}|[0-9]{8})?$",
+        ErrorMessage = "HSN/SAC code must be 4, 6 or 8 digits.")]
+    public string? HsnCode { get; set; }
 
     public int? CategoryId { get; set; }
     public string? CategoryName { get; set; }

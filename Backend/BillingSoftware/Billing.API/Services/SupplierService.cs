@@ -1,4 +1,4 @@
-﻿using Billing.API.Models;
+using Billing.API.Models;
 using Billing.Domain.Entities;
 using Billing.Persistence.Context;
 using Billing.Shared.Exceptions;
@@ -22,6 +22,7 @@ public class SupplierService
         var mobile = dto.Mobile.Trim();
 
         await EnsureMobileIsFreeAsync(mobile, excludeId: null);
+        var tax = NormalizeTax(dto);
 
         var supplier = new Supplier
         {
@@ -29,7 +30,10 @@ public class SupplierService
             CompanyName = dto.CompanyName.Trim(),
             Mobile = mobile,
             Email = NormalizeOptional(dto.Email),
-            Address = NormalizeOptional(dto.Address)
+            Address = NormalizeOptional(dto.Address),
+            State = tax.State,
+            StateCode = tax.StateCode,
+            Gstin = tax.Gstin
         };
 
         _context.Suppliers.Add(supplier);
@@ -52,7 +56,10 @@ public class SupplierService
                 CompanyName = x.CompanyName,
                 Mobile = x.Mobile,
                 Email = x.Email,
-                Address = x.Address
+                Address = x.Address,
+                State = x.State,
+                StateCode = x.StateCode,
+                Gstin = x.Gstin
             })
             .ToListAsync();
     }
@@ -69,7 +76,10 @@ public class SupplierService
                 CompanyName = x.CompanyName,
                 Mobile = x.Mobile,
                 Email = x.Email,
-                Address = x.Address
+                Address = x.Address,
+                State = x.State,
+                StateCode = x.StateCode,
+                Gstin = x.Gstin
             })
             .FirstOrDefaultAsync();
     }
@@ -84,12 +94,16 @@ public class SupplierService
         var mobile = dto.Mobile.Trim();
 
         await EnsureMobileIsFreeAsync(mobile, excludeId: id);
+        var tax = NormalizeTax(dto);
 
         supplier.Name = dto.Name.Trim();
         supplier.CompanyName = dto.CompanyName.Trim();
         supplier.Mobile = mobile;
         supplier.Email = NormalizeOptional(dto.Email);
         supplier.Address = NormalizeOptional(dto.Address);
+        supplier.State = tax.State;
+        supplier.StateCode = tax.StateCode;
+        supplier.Gstin = tax.Gstin;
 
         await _context.SaveChangesAsync();
     }
@@ -140,7 +154,10 @@ public class SupplierService
                 CompanyName = x.CompanyName,
                 Mobile = x.Mobile,
                 Email = x.Email,
-                Address = x.Address
+                Address = x.Address,
+                State = x.State,
+                StateCode = x.StateCode,
+                Gstin = x.Gstin
             })
             .ToListAsync();
 
@@ -170,5 +187,17 @@ public class SupplierService
         var trimmed = value?.Trim();
 
         return string.IsNullOrEmpty(trimmed) ? null : trimmed;
+    }
+
+    private static Billing.Application.Accounting.PartyTaxInfo NormalizeTax(SupplierDto dto)
+    {
+        try
+        {
+            return Billing.Application.Accounting.PartyTaxDetails.Normalize(dto.State, dto.StateCode, dto.Gstin);
+        }
+        catch (Billing.Application.Accounting.PartyTaxException ex)
+        {
+            throw new BusinessException(ex.Message);
+        }
     }
 }

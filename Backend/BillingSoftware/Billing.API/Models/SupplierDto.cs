@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace Billing.API.Models;
 
@@ -26,4 +26,16 @@ public class SupplierDto
 
     [StringLength(500, ErrorMessage = "Address cannot exceed 500 characters.")]
     public string? Address { get; set; }
+
+    /// <summary>State name (official spelling). Needed to choose CGST/SGST vs IGST.</summary>
+    [StringLength(100, ErrorMessage = "State cannot exceed 100 characters.")]
+    public string? State { get; set; }
+
+    /// <summary>Two-digit GST state code, e.g. 36 for Telangana.</summary>
+    [StringLength(2, ErrorMessage = "State code must be 2 digits.")]
+    public string? StateCode { get; set; }
+
+    /// <summary>15-character GSTIN for business customers/suppliers.</summary>
+    [StringLength(15, ErrorMessage = "GSTIN must be 15 characters.")]
+    public string? Gstin { get; set; }
 }

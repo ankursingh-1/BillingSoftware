@@ -1,7 +1,8 @@
-﻿using Billing.Application.Interfaces;
+using Billing.Application.Interfaces;
 using Billing.Domain.Entities;
 using Billing.Domain.Enums;
 using Billing.Persistence.Context;
+using Billing.Shared.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Billing.API.Services
@@ -15,61 +16,102 @@ namespace Billing.API.Services
             _context = context;
         }
 
+        /// <summary>
+        /// Moves stock and writes the matching stock-ledger row.
+        ///
+        /// The stock change is ONE conditional UPDATE (Stock + delta, only if the result
+        /// is not negative), so two requests can never both take the last unit and no
+        /// update is ever lost, whatever else is running. Must be called inside a
+        /// transaction; the ledger row is saved by the caller's SaveChanges.
+        /// </summary>
         public async Task AdjustStockAsync(
-        int productId,int quantity,
-        StockTransactionType transactionType,
-        string? referenceNo = null,
-        string? remarks = null)
+            int productId,
+            int quantity,
+            StockTransactionType transactionType,
+            string? referenceNo = null,
+            string? remarks = null)
         {
             if (quantity <= 0)
-                throw new Exception("Quantity must be greater than zero.");
+                throw new BusinessException("Quantity must be greater than zero.");
 
-            var product = await _context.Products
-            .FirstOrDefaultAsync(x => x.Id == productId && !x.IsDeleted);
-
-            if (product == null)
-                throw new Exception("Product not found.");
-
-            int previousStock = product.Stock;
-
-            switch (transactionType)
+            var delta = transactionType switch
             {
-                case StockTransactionType.Purchase:
-                case StockTransactionType.SalesReturn:
-                case StockTransactionType.OpeningStock:
-                case StockTransactionType.Adjustment:
-                    product.Stock += quantity;
-                    break;
+                StockTransactionType.Purchase or
+                StockTransactionType.SalesReturn or
+                StockTransactionType.OpeningStock or
+                StockTransactionType.Adjustment => quantity,
 
-                case StockTransactionType.Sale:
-                case StockTransactionType.PurchaseReturn:
-                case StockTransactionType.Damaged:
-                case StockTransactionType.Expired:
-                case StockTransactionType.Lost:
+                StockTransactionType.Sale or
+                StockTransactionType.PurchaseReturn or
+                StockTransactionType.Damaged or
+                StockTransactionType.Expired or
+                StockTransactionType.Lost => -quantity,
 
-                    if (product.Stock < quantity)
-                        throw new Exception("Insufficient stock.");
+                _ => throw new BusinessException("Invalid stock transaction type.")
+            };
 
-                    product.Stock -= quantity;
-                    break;
+            const string sql = @"
+UPDATE Products
+   SET Stock = Stock + @delta
+OUTPUT deleted.Stock, inserted.Stock
+ WHERE Id = @id AND IsDeleted = 0 AND Stock + @delta >= 0;";
 
-                default:
-                    throw new Exception("Invalid transaction type.");
+            int previousStock;
+            int currentStock;
+
+            await using (var command = SqlTransactionHelper.CreateCommand(
+                _context, sql, ("@delta", delta), ("@id", productId)))
+            await using (var reader = await command.ExecuteReaderAsync())
+            {
+                if (!await reader.ReadAsync())
+                {
+                    await reader.CloseAsync();
+                    await ThrowWhyStockChangeFailedAsync(productId, quantity);
+                    return;
+                }
+
+                previousStock = reader.GetInt32(0);
+                currentStock = reader.GetInt32(1);
             }
 
-            var ledger = new StockLedger
+            // Keep an already-loaded Product instance consistent with the database.
+            var tracked = _context.ChangeTracker.Entries<Product>()
+                .FirstOrDefault(e => e.Entity.Id == productId);
+
+            if (tracked != null)
             {
-                ProductId = product.Id,
+                var stock = tracked.Property(p => p.Stock);
+                stock.CurrentValue = currentStock;
+                stock.OriginalValue = currentStock;
+                stock.IsModified = false;
+            }
+
+            _context.StockLedgers.Add(new StockLedger
+            {
+                ProductId = productId,
                 TransactionType = transactionType,
                 Quantity = quantity,
                 PreviousStock = previousStock,
-                CurrentStock = product.Stock,
+                CurrentStock = currentStock,
                 ReferenceNo = referenceNo,
                 Remarks = remarks ?? transactionType.ToString(),
                 CreatedOn = DateTime.UtcNow
-            };
-            _context.StockLedgers.Add(ledger);
-            Console.WriteLine($"Stock Ledger Added -> ProductId={product.Id}, Qty={quantity}, Type={transactionType}");
+            });
+        }
+
+        private async Task ThrowWhyStockChangeFailedAsync(int productId, int quantity)
+        {
+            var product = await _context.Products
+                .AsNoTracking()
+                .Where(x => x.Id == productId && !x.IsDeleted)
+                .Select(x => new { x.Name, x.Stock })
+                .FirstOrDefaultAsync();
+
+            if (product == null)
+                throw new BusinessException($"Product not found or has been deleted (id: {productId}).");
+
+            throw BusinessException.Conflict(
+                $"Insufficient stock for '{product.Name}': {product.Stock} available, {quantity} requested.");
         }
     }
 }

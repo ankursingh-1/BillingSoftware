@@ -1,4 +1,4 @@
-﻿using Billing.API.Models;
+using Billing.API.Models;
 using Billing.Domain.Entities;
 using Billing.Persistence.Context;
 using Billing.Shared.Exceptions;
@@ -22,13 +22,17 @@ public class CustomerService
         var mobile = dto.Mobile.Trim();
 
         await EnsureMobileIsFreeAsync(mobile, excludeId: null);
+        var tax = NormalizeTax(dto);
 
         var customer = new Customer
         {
             Name = dto.Name.Trim(),
             Mobile = mobile,
             Email = NormalizeOptional(dto.Email),
-            Address = NormalizeOptional(dto.Address)
+            Address = NormalizeOptional(dto.Address),
+            State = tax.State,
+            StateCode = tax.StateCode,
+            Gstin = tax.Gstin
         };
 
         _context.Customers.Add(customer);
@@ -50,7 +54,10 @@ public class CustomerService
                 Name = x.Name,
                 Mobile = x.Mobile,
                 Email = x.Email,
-                Address = x.Address
+                Address = x.Address,
+                State = x.State,
+                StateCode = x.StateCode,
+                Gstin = x.Gstin
             })
             .ToListAsync();
     }
@@ -66,7 +73,10 @@ public class CustomerService
                 Name = x.Name,
                 Mobile = x.Mobile,
                 Email = x.Email,
-                Address = x.Address
+                Address = x.Address,
+                State = x.State,
+                StateCode = x.StateCode,
+                Gstin = x.Gstin
             })
             .FirstOrDefaultAsync();
     }
@@ -81,11 +91,15 @@ public class CustomerService
         var mobile = dto.Mobile.Trim();
 
         await EnsureMobileIsFreeAsync(mobile, excludeId: id);
+        var tax = NormalizeTax(dto);
 
         customer.Name = dto.Name.Trim();
         customer.Mobile = mobile;
         customer.Email = NormalizeOptional(dto.Email);
         customer.Address = NormalizeOptional(dto.Address);
+        customer.State = tax.State;
+        customer.StateCode = tax.StateCode;
+        customer.Gstin = tax.Gstin;
 
         await _context.SaveChangesAsync();
     }
@@ -134,7 +148,10 @@ public class CustomerService
                 Name = x.Name,
                 Mobile = x.Mobile,
                 Email = x.Email,
-                Address = x.Address
+                Address = x.Address,
+                State = x.State,
+                StateCode = x.StateCode,
+                Gstin = x.Gstin
             })
             .ToListAsync();
 
@@ -164,5 +181,17 @@ public class CustomerService
         var trimmed = value?.Trim();
 
         return string.IsNullOrEmpty(trimmed) ? null : trimmed;
+    }
+
+    private static Billing.Application.Accounting.PartyTaxInfo NormalizeTax(CustomerDto dto)
+    {
+        try
+        {
+            return Billing.Application.Accounting.PartyTaxDetails.Normalize(dto.State, dto.StateCode, dto.Gstin);
+        }
+        catch (Billing.Application.Accounting.PartyTaxException ex)
+        {
+            throw new BusinessException(ex.Message);
+        }
     }
 }

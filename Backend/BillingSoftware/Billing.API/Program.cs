@@ -80,6 +80,13 @@ builder.Services.AddScoped<ISalesReturnService, SalesReturnService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IAppSettingService, AppSettingService>();
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<IDocumentNumberService, DocumentNumberService>();
+builder.Services.AddScoped<InvoicePdfService>();
+builder.Services.AddScoped<CompanyLogoStore>();
+
 var jwt = builder.Configuration.GetSection("JwtSettings");
 
 builder.Services
@@ -113,7 +120,13 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Enums are sent as names ("Cash", "Upi") and accepted as names or numbers.
+        options.JsonSerializerOptions.Converters.Add(
+            new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(options =>

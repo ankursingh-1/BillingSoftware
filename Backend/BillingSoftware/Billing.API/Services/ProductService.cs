@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using Billing.API.Models;
 using Billing.Application.Interfaces;
 using Billing.Domain.Entities;
@@ -32,6 +32,7 @@ public class ProductService
         PurchasePrice = x.PurchasePrice,
         SellingPrice = x.SellingPrice,
         Stock = x.Stock,
+        HsnCode = x.HsnCode,
         CategoryId = x.CategoryId,
         CategoryName = x.Category != null ? x.Category.Name : null,
         BrandId = x.BrandId,
@@ -58,8 +59,8 @@ public class ProductService
             throw new BusinessException("Selected unit was not found.");
 
         if (dto.TaxId.HasValue &&
-            !await _context.Taxes.AnyAsync(x => x.Id == dto.TaxId && !x.IsDeleted))
-            throw new BusinessException("Selected tax was not found.");
+            !await _context.Taxes.AnyAsync(x => x.Id == dto.TaxId && !x.IsDeleted && x.IsActive))
+            throw new BusinessException("Selected tax was not found or is inactive.");
     }
 
     public async Task<int> CreateAsync(ProductDto dto)
@@ -85,6 +86,7 @@ public class ProductService
             PurchasePrice = dto.PurchasePrice,
             SellingPrice = dto.SellingPrice,
             Stock = 0,
+            HsnCode = NormalizeOptional(dto.HsnCode),
             CategoryId = dto.CategoryId,
             BrandId = dto.BrandId,
             UnitId = dto.UnitId,
@@ -157,6 +159,7 @@ public class ProductService
         product.SKU = sku;
         product.PurchasePrice = dto.PurchasePrice;
         product.SellingPrice = dto.SellingPrice;
+        product.HsnCode = NormalizeOptional(dto.HsnCode);
         // Stock is intentionally NOT updated here. Changing it from a stale
         // client value would overwrite sales/purchases made in the meantime
         // and bypass the stock ledger. Use stock adjustments instead.
@@ -217,5 +220,11 @@ public class ProductService
             PageSize = pageSize,
             Data = products
         };
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
     }
 }
