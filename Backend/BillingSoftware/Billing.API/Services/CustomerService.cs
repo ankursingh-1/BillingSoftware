@@ -1,12 +1,15 @@
 ﻿using Billing.API.Models;
 using Billing.Domain.Entities;
 using Billing.Persistence.Context;
+using Billing.Shared.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Billing.API.Services;
 
 public class CustomerService
 {
+    private const int MaxPageSize = 100;
+
     private readonly BillingDbContext _context;
 
     public CustomerService(BillingDbContext context)
@@ -16,19 +19,16 @@ public class CustomerService
 
     public async Task<int> CreateAsync(CustomerDto dto)
     {
-        if (await _context.Customers.AnyAsync(x =>
-            x.Mobile == dto.Mobile &&
-            !x.IsDeleted))
-        {
-            throw new Exception("Mobile number already exists.");
-        }
+        var mobile = dto.Mobile.Trim();
+
+        await EnsureMobileIsFreeAsync(mobile, excludeId: null);
 
         var customer = new Customer
         {
-            Name = dto.Name,
-            Mobile = dto.Mobile,
-            Email = dto.Email,
-            Address = dto.Address
+            Name = dto.Name.Trim(),
+            Mobile = mobile,
+            Email = NormalizeOptional(dto.Email),
+            Address = NormalizeOptional(dto.Address)
         };
 
         _context.Customers.Add(customer);
@@ -41,6 +41,7 @@ public class CustomerService
     public async Task<List<CustomerDto>> GetAllAsync()
     {
         return await _context.Customers
+            .AsNoTracking()
             .Where(x => !x.IsDeleted)
             .OrderBy(x => x.Name)
             .Select(x => new CustomerDto
@@ -57,6 +58,7 @@ public class CustomerService
     public async Task<CustomerDto?> GetByIdAsync(int id)
     {
         return await _context.Customers
+            .AsNoTracking()
             .Where(x => x.Id == id && !x.IsDeleted)
             .Select(x => new CustomerDto
             {
@@ -71,23 +73,19 @@ public class CustomerService
 
     public async Task UpdateAsync(int id, CustomerDto dto)
     {
-        if (await _context.Customers.AnyAsync(x =>
-            x.Id != id &&
-            x.Mobile == dto.Mobile &&
-            !x.IsDeleted))
-        {
-            throw new Exception("Mobile number already exists.");
-        }
-
         var customer = await _context.Customers.FindAsync(id);
 
         if (customer == null || customer.IsDeleted)
-            throw new Exception("Customer not found.");
+            throw BusinessException.NotFound("Customer not found.");
 
-        customer.Name = dto.Name;
-        customer.Mobile = dto.Mobile;
-        customer.Email = dto.Email;
-        customer.Address = dto.Address;
+        var mobile = dto.Mobile.Trim();
+
+        await EnsureMobileIsFreeAsync(mobile, excludeId: id);
+
+        customer.Name = dto.Name.Trim();
+        customer.Mobile = mobile;
+        customer.Email = NormalizeOptional(dto.Email);
+        customer.Address = NormalizeOptional(dto.Address);
 
         await _context.SaveChangesAsync();
     }
@@ -97,8 +95,9 @@ public class CustomerService
         var customer = await _context.Customers.FindAsync(id);
 
         if (customer == null || customer.IsDeleted)
-            throw new Exception("Customer not found.");
+            throw BusinessException.NotFound("Customer not found.");
 
+        // Soft delete: existing sales keep pointing at this customer.
         customer.IsDeleted = true;
 
         await _context.SaveChangesAsync();
@@ -106,21 +105,29 @@ public class CustomerService
 
     public async Task<PagedResult<CustomerDto>> SearchAsync(CustomerSearchRequest request)
     {
-        var query = _context.Customers.Where(x => !x.IsDeleted);
+        var pageNumber = Math.Max(request.PageNumber, 1);
+        var pageSize = Math.Clamp(request.PageSize, 1, MaxPageSize);
+
+        var query = _context.Customers
+            .AsNoTracking()
+            .Where(x => !x.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
+            var search = request.Search.Trim();
+
             query = query.Where(x =>
-                x.Name.Contains(request.Search) ||
-                x.Mobile.Contains(request.Search));
+                x.Name.Contains(search) ||
+                x.Mobile.Contains(search));
         }
 
         int totalRecords = await query.CountAsync();
 
         var data = await query
             .OrderBy(x => x.Name)
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
+            .ThenBy(x => x.Id)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .Select(x => new CustomerDto
             {
                 Id = x.Id,
@@ -134,10 +141,28 @@ public class CustomerService
         return new PagedResult<CustomerDto>
         {
             TotalRecords = totalRecords,
-            TotalPages = (int)Math.Ceiling((double)totalRecords / request.PageSize),
-            PageNumber = request.PageNumber,
-            PageSize = request.PageSize,
+            TotalPages = (int)Math.Ceiling((double)totalRecords / pageSize),
+            PageNumber = pageNumber,
+            PageSize = pageSize,
             Data = data
         };
+    }
+
+    private async Task EnsureMobileIsFreeAsync(string mobile, int? excludeId)
+    {
+        if (await _context.Customers.AnyAsync(x =>
+            x.Id != excludeId &&
+            x.Mobile == mobile &&
+            !x.IsDeleted))
+        {
+            throw BusinessException.Conflict("Mobile number already exists.");
+        }
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        var trimmed = value?.Trim();
+
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
     }
 }
