@@ -1,9 +1,3 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace Billing.Application.DTOs.Company;
 
 public class CompanyDto
@@ -15,12 +9,15 @@ public class CompanyDto
     public string? Address { get; set; }
     public string? City { get; set; }
     public string? State { get; set; }
+    public string? StateCode { get; set; }
     public string? Country { get; set; }
     public string? Pincode { get; set; }
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Website { get; set; }
-    public string? LogoPath { get; set; }
+
+    /// <summary>True when a logo has been uploaded. The image is served from /api/Company/logo.</summary>
+    public bool HasLogo { get; set; }
     public string InvoicePrefix { get; set; } = "INV";
     public string Currency { get; set; } = "INR";
     public string? BankName { get; set; }
@@ -29,5 +26,14 @@ public class CompanyDto
     public string? UPIId { get; set; }
     public string? TermsAndConditions { get; set; }
     public string? FooterMessage { get; set; }
+
+    // Invoice print settings
+    public string DefaultInvoiceFormat { get; set; } = "A4";
+    public int ThermalPaperWidthMm { get; set; } = 80;
+    public bool ShowBankDetails { get; set; }
+    public bool ShowLogo { get; set; } = true;
+    public bool ShowTerms { get; set; } = true;
+    public bool ShowFooter { get; set; } = true;
+
     public bool IsActive { get; set; }
 }

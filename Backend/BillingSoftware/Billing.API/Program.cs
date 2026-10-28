@@ -67,7 +67,8 @@ builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<IPdfExportService, PdfExportService>();
 builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
-builder.Services.AddScoped<ICompanyService, CompanyService>();
+builder.Services.AddScoped<CompanyService>();
+builder.Services.AddScoped<ICompanyService>(sp => sp.GetRequiredService<CompanyService>());
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
@@ -89,6 +90,7 @@ builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IDocumentNumberService, DocumentNumberService>();
 builder.Services.AddScoped<InvoicePdfService>();
+builder.Services.AddScoped<ReceiptPdfService>();
 builder.Services.AddScoped<CompanyLogoStore>();
 
 var jwt = builder.Configuration.GetSection("JwtSettings");

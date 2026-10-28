@@ -37,6 +37,9 @@ namespace Billing.Application.DTOs.Sales
         public SaleCustomerDto Customer { get; set; } = new();
         public InvoiceCompanyDto Company { get; set; } = new();
 
+        /// <summary>How the invoice should be printed (company print settings; not part of the saved invoice).</summary>
+        public InvoiceSettingsDto Settings { get; set; } = new();
+
         // ---- Amounts ----
         public decimal Subtotal { get; set; }
         public decimal CgstTotal { get; set; }
@@ -93,6 +96,10 @@ namespace Billing.Application.DTOs.Sales
         public string? Gstin { get; set; }
         public string? Pan { get; set; }
         public bool HasLogo { get; set; }
+        public string? Website { get; set; }
+
+        /// <summary>Stored logo file used by this invoice (served at /api/Company/logo/{file}).</summary>
+        public string? LogoFile { get; set; }
         public string? BankName { get; set; }
         public string? AccountNumber { get; set; }
         public string? IfscCode { get; set; }
@@ -131,6 +138,7 @@ namespace Billing.Application.DTOs.Sales
         public DateTime PaymentDate { get; set; }
         public string Method { get; set; } = string.Empty;
         public string? Reference { get; set; }
+        public string? ReceiptNumber { get; set; }
         public string? Notes { get; set; }
         public string? RecordedBy { get; set; }
         public bool IsVoided { get; set; }

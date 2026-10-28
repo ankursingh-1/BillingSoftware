@@ -8,7 +8,10 @@ namespace Billing.Persistence.Configurations
     {
         public void Configure(EntityTypeBuilder<Company> builder)
         {
-            builder.ToTable("Companies");
+            // Only 58 mm and 80 mm thermal paper are supported.
+            builder.ToTable("Companies", table =>
+                table.HasCheckConstraint(
+                    "CK_Companies_ThermalWidth", "[ThermalPaperWidthMm] IN (58, 80)"));
 
             builder.HasKey(x => x.Id);
 
@@ -77,6 +80,10 @@ namespace Billing.Persistence.Configurations
 
             builder.Property(x => x.FooterMessage)
                    .HasMaxLength(1000);
+
+            builder.Property(x => x.DefaultInvoiceFormat)
+                   .HasConversion<string>()
+                   .HasMaxLength(20);
         }
     }
 }

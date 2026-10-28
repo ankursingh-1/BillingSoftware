@@ -1,5 +1,6 @@
 using Billing.API.Models;
 using Billing.Application.Accounting;
+using Billing.Application.Documents;
 using Billing.Application.DTOs.Sales;
 using Billing.Application.Interfaces;
 using Billing.Domain.Entities;
@@ -226,7 +227,8 @@ public class SaleService
             PlaceOfSupplyStateCode = placeOfSupply,
             CustomerGstin = GstStates.NormalizeGstin(customer.Gstin),
             CompanyGstin = GstStates.NormalizeGstin(company.GSTNumber),
-            CompanyStateCode = companyState
+            CompanyStateCode = companyState,
+            DocumentSnapshot = BuildSnapshot(company, customer, placeOfSupply).ToJson()
         };
 
         var taxLines = new List<(decimal Taxable, TaxBreakup Tax)>();
@@ -298,6 +300,7 @@ public class SaleService
         {
             sale.Payments.Add(new Payment
             {
+                ReceiptNumber = await NextReceiptNumberAsync(),
                 Amount = payment.Amount,
                 Method = payment.Method,
                 Reference = string.IsNullOrWhiteSpace(payment.Reference) ? null : payment.Reference.Trim(),
@@ -522,6 +525,7 @@ public class SaleService
             .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
 
         var company = await _context.Companies.AsNoTracking().OrderBy(c => c.Id).FirstOrDefaultAsync();
+        var snapshot = InvoiceSnapshot.TryParse(sale.DocumentSnapshot);
 
         var paid = sale.Payments.Where(p => !p.IsVoided).Sum(p => p.Amount);
         var returnedAmount = returns.Sum(r => r.TotalAmount);
@@ -535,19 +539,9 @@ public class SaleService
             InvoiceNumber = sale.InvoiceNumber,
             SaleDate = sale.SaleDate,
             Remarks = sale.Remarks,
-            Customer = new SaleCustomerDto
-            {
-                Id = sale.Customer.Id,
-                Name = sale.Customer.Name,
-                Mobile = sale.Customer.Mobile,
-                Email = sale.Customer.Email,
-                Address = sale.Customer.Address,
-                State = sale.Customer.State ?? GstStates.NameOf(sale.PlaceOfSupplyStateCode),
-                StateCode = sale.PlaceOfSupplyStateCode,
-                // Printed GSTIN is the one frozen on the invoice (legacy invoices have none).
-                Gstin = sale.TaxCalculated ? sale.CustomerGstin : sale.Customer.Gstin
-            },
-            Company = BuildCompany(company, sale),
+            Customer = BuildCustomer(sale, snapshot),
+            Company = BuildCompany(company, sale, snapshot),
+            Settings = BuildSettings(company),
             Subtotal = sale.Subtotal,
             CgstTotal = sale.CgstTotal,
             SgstTotal = sale.SgstTotal,
@@ -604,6 +598,7 @@ public class SaleService
                     PaymentDate = p.PaymentDate.AsUtc(),
                     Method = p.Method.ToString(),
                     Reference = p.Reference,
+                    ReceiptNumber = p.ReceiptNumber,
                     Notes = p.Notes,
                     RecordedBy = p.CreatedBy,
                     IsVoided = p.IsVoided,
@@ -624,11 +619,113 @@ public class SaleService
         };
     }
 
-    private static InvoiceCompanyDto BuildCompany(Company? company, Sale sale)
+    // ---- Snapshot (company + customer header as at invoice time) ----
+
+    private static InvoiceSnapshot BuildSnapshot(Company company, Customer customer, string? placeOfSupply) => new()
     {
+        Company = new SnapshotCompany
+        {
+            Name = company.CompanyName,
+            Address = company.Address,
+            City = company.City,
+            State = company.State,
+            StateCode = PlaceOfSupply.CompanyStateCode(company.StateCode, company.State, company.GSTNumber),
+            Pincode = company.Pincode,
+            Phone = company.Phone,
+            Email = company.Email,
+            Website = company.Website,
+            Gstin = GstStates.NormalizeGstin(company.GSTNumber),
+            Pan = company.PANNumber,
+            LogoFile = string.IsNullOrWhiteSpace(company.LogoPath) ? null : company.LogoPath,
+            BankName = company.BankName,
+            AccountNumber = company.AccountNumber,
+            IfscCode = company.IFSCCode,
+            UpiId = company.UPIId,
+            Terms = company.TermsAndConditions,
+            Footer = company.FooterMessage,
+            Currency = company.Currency
+        },
+        Customer = new SnapshotCustomer
+        {
+            Name = customer.Name,
+            Mobile = customer.Mobile,
+            Email = customer.Email,
+            Address = customer.Address,
+            State = customer.State ?? GstStates.NameOf(placeOfSupply),
+            StateCode = placeOfSupply,
+            Gstin = GstStates.NormalizeGstin(customer.Gstin)
+        }
+    };
+
+    private static SaleCustomerDto BuildCustomer(Sale sale, InvoiceSnapshot? snapshot)
+    {
+        if (snapshot != null)
+        {
+            var c = snapshot.Customer;
+
+            return new SaleCustomerDto
+            {
+                Id = sale.CustomerId,
+                Name = c.Name,
+                Mobile = c.Mobile ?? string.Empty,
+                Email = c.Email,
+                Address = c.Address,
+                State = c.State,
+                StateCode = c.StateCode,
+                Gstin = c.Gstin
+            };
+        }
+
+        // Invoices created before snapshots existed show the customer's current details.
+        return new SaleCustomerDto
+        {
+            Id = sale.Customer.Id,
+            Name = sale.Customer.Name,
+            Mobile = sale.Customer.Mobile,
+            Email = sale.Customer.Email,
+            Address = sale.Customer.Address,
+            State = sale.Customer.State ?? GstStates.NameOf(sale.PlaceOfSupplyStateCode),
+            StateCode = sale.PlaceOfSupplyStateCode,
+            // Printed GSTIN is the one frozen on the invoice (legacy invoices have none).
+            Gstin = sale.TaxCalculated ? sale.CustomerGstin : sale.Customer.Gstin
+        };
+    }
+
+    public static InvoiceCompanyDto BuildCompany(Company? company, Sale sale, InvoiceSnapshot? snapshot)
+    {
+        if (snapshot != null)
+        {
+            var c = snapshot.Company;
+
+            return new InvoiceCompanyDto
+            {
+                Name = c.Name,
+                Address = c.Address,
+                City = c.City,
+                State = c.State,
+                StateCode = sale.CompanyStateCode ?? c.StateCode,
+                Pincode = c.Pincode,
+                Phone = c.Phone,
+                Email = c.Email,
+                Website = c.Website,
+                Gstin = sale.CompanyGstin ?? c.Gstin,
+                Pan = c.Pan,
+                HasLogo = !string.IsNullOrWhiteSpace(c.LogoFile),
+                LogoFile = c.LogoFile,
+                BankName = c.BankName,
+                AccountNumber = c.AccountNumber,
+                IfscCode = c.IfscCode,
+                UpiId = c.UpiId,
+                Terms = c.Terms,
+                Footer = c.Footer,
+                Currency = c.Currency
+            };
+        }
+
         if (company == null)
             return new InvoiceCompanyDto();
 
+        // Invoices created before snapshots existed show the current company details.
         return new InvoiceCompanyDto
         {
             Name = company.CompanyName,
@@ -639,10 +736,12 @@ public class SaleService
             Pincode = company.Pincode,
             Phone = company.Phone,
             Email = company.Email,
+            Website = company.Website,
             // The GSTIN printed is the one frozen on the invoice when it exists.
             Gstin = sale.CompanyGstin ?? company.GSTNumber,
             Pan = company.PANNumber,
             HasLogo = !string.IsNullOrWhiteSpace(company.LogoPath),
+            LogoFile = string.IsNullOrWhiteSpace(company.LogoPath) ? null : company.LogoPath,
             BankName = company.BankName,
             AccountNumber = company.AccountNumber,
             IfscCode = company.IFSCCode,
@@ -653,6 +752,125 @@ public class SaleService
         };
     }
 
+    public static InvoiceSettingsDto BuildSettings(Company? company) => company == null
+        ? new InvoiceSettingsDto()
+        : new InvoiceSettingsDto
+        {
+            DefaultFormat = company.DefaultInvoiceFormat.ToString(),
+            ThermalPaperWidthMm = company.ThermalPaperWidthMm,
+            ShowBankDetails = company.ShowBankDetails,
+            ShowLogo = company.ShowLogo,
+            ShowTerms = company.ShowTerms,
+            ShowFooter = company.ShowFooter
+        };
+
+    /// <summary>Next payment receipt number. Must run inside the caller's transaction.</summary>
+    private async Task<string> NextReceiptNumberAsync()
+    {
+        var today = DateTime.Now;
+
+        try
+        {
+            var sequence = await _numbers.NextAsync(
+                DocumentNumbering.SeriesKey(DocumentNumbering.ReceiptPrefix, today));
+
+            return DocumentNumbering.Format(DocumentNumbering.ReceiptPrefix, today, sequence);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            throw BusinessException.Conflict(
+                "The receipt number series for this financial year is exhausted.");
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Payment receipts
+    // ------------------------------------------------------------------
+
+    public async Task<PaymentReceiptDto> GetReceiptAsync(int saleId, int paymentId)
+    {
+        // Payments made before receipts existed have no number yet. Give them one the
+        // first time a receipt is requested (inside a transaction, under the sale lock).
+        var needsNumber = await _context.Payments
+            .AnyAsync(p => p.Id == paymentId && p.SaleId == saleId && p.ReceiptNumber == null);
+
+        if (needsNumber)
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            await LockSaleAsync(saleId);
+
+            var payment = await _context.Payments
+                .FirstOrDefaultAsync(p => p.Id == paymentId && p.SaleId == saleId);
+
+            if (payment is { ReceiptNumber: null })
+            {
+                payment.ReceiptNumber = await NextReceiptNumberAsync();
+                await _context.SaveChangesAsync();
+            }
+
+            await transaction.CommitAsync();
+        }
+
+        var sale = await _context.Sales
+            .AsNoTracking()
+            .Include(x => x.Customer)
+            .Include(x => x.Payments)
+            .FirstOrDefaultAsync(x => x.Id == saleId)
+            ?? throw BusinessException.NotFound("Sale not found.");
+
+        var current = sale.Payments.FirstOrDefault(p => p.Id == paymentId)
+            ?? throw BusinessException.NotFound("Payment not found.");
+
+        // Return dates are local business time; payment dates are UTC.
+        var paidAtLocal = DateTime.SpecifyKind(current.PaymentDate, DateTimeKind.Utc).ToLocalTime();
+
+        var returnsBefore = await _context.SalesReturns
+            .AsNoTracking()
+            .Where(r => r.SaleId == saleId && r.ReturnDate <= paidAtLocal)
+            .SumAsync(r => (decimal?)r.TotalAmount) ?? 0;
+
+        var previouslyPaid = sale.Payments
+            .Where(p => !p.IsVoided
+                        && (p.PaymentDate < current.PaymentDate
+                            || (p.PaymentDate == current.PaymentDate && p.Id < current.Id)))
+            .Sum(p => p.Amount);
+
+        var invoiceTotal = Math.Max(0, sale.TotalAmount - returnsBefore);
+        var counted = current.IsVoided ? 0 : current.Amount;
+        var balanceAfter = Math.Max(0, invoiceTotal - previouslyPaid - counted);
+        var settles = !current.IsVoided && balanceAfter == 0;
+
+        var company = await _context.Companies.AsNoTracking().OrderBy(c => c.Id).FirstOrDefaultAsync();
+        var snapshot = InvoiceSnapshot.TryParse(sale.DocumentSnapshot);
+
+        return new PaymentReceiptDto
+        {
+            PaymentId = current.Id,
+            ReceiptNumber = current.ReceiptNumber ?? string.Empty,
+            PaymentDate = current.PaymentDate.AsUtc(),
+            Method = current.Method.ToString(),
+            Amount = current.Amount,
+            Reference = current.Reference,
+            Notes = current.Notes,
+            ReceivedBy = current.CreatedBy,
+            Status = current.IsVoided ? "Voided" : "Received",
+            IsVoided = current.IsVoided,
+            VoidedOn = current.VoidedOn.AsUtc(),
+            VoidReason = current.VoidReason,
+            SaleId = sale.Id,
+            InvoiceNumber = sale.InvoiceNumber,
+            InvoiceDate = sale.SaleDate,
+            InvoiceTotal = invoiceTotal,
+            PreviouslyPaid = previouslyPaid,
+            BalanceAfter = balanceAfter,
+            SettlesInvoice = settles,
+            Description = current.IsVoided ? "Voided" : settles ? "Final payment" : "Part payment",
+            AmountInWords = AmountInWords.Rupees(current.Amount),
+            Customer = BuildCustomer(sale, snapshot),
+            Company = BuildCompany(company, sale, snapshot),
+            Settings = BuildSettings(company)
+        };
+    }
     // ------------------------------------------------------------------
     // Payments
     // ------------------------------------------------------------------
@@ -704,6 +922,7 @@ public class SaleService
         var payment = new Payment
         {
             SaleId = saleId,
+            ReceiptNumber = await NextReceiptNumberAsync(),
             Amount = request.Amount,
             Method = request.Method,
             Reference = string.IsNullOrWhiteSpace(request.Reference) ? null : request.Reference.Trim(),

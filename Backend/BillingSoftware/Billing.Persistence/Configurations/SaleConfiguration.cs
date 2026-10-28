@@ -40,6 +40,7 @@ public class SaleConfiguration : IEntityTypeConfiguration<Sale>
         builder.Property(x => x.CompanyStateCode).HasMaxLength(2);
         builder.Property(x => x.CustomerGstin).HasMaxLength(15);
         builder.Property(x => x.CompanyGstin).HasMaxLength(15);
+        builder.Property(x => x.DocumentSnapshot).HasColumnType("nvarchar(max)");
 
         builder.Property(x => x.Remarks)
                .HasMaxLength(500);

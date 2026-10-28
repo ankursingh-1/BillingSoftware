@@ -14,6 +14,7 @@ public static class DocumentNumbering
     public const int MaxSequence = 999_999;
 
     public const string PurchasePrefix = "PUR";
+    public const string ReceiptPrefix = "RCT";         // payment receipt
     public const string SalesReturnPrefix = "CN";      // credit note
     public const string PurchaseReturnPrefix = "DN";   // debit note
 

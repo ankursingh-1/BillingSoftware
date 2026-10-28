@@ -1,4 +1,5 @@
 using Billing.Domain.Common;
+using Billing.Domain.Enums;
 
 namespace Billing.Domain.Entities;
 
@@ -27,5 +28,18 @@ public class Company : BaseEntity
     public string? UPIId { get; set; }
     public string? TermsAndConditions { get; set; }
     public string? FooterMessage { get; set; }
+
+    // ---- Invoice print settings (presentation only; never change saved invoice data) ----
+    public InvoiceFormat DefaultInvoiceFormat { get; set; } = InvoiceFormat.A4;
+
+    /// <summary>58 or 80.</summary>
+    public int ThermalPaperWidthMm { get; set; } = 80;
+
+    /// <summary>Bank/UPI details are off by default: they are not wanted on counter bills.</summary>
+    public bool ShowBankDetails { get; set; }
+    public bool ShowLogo { get; set; } = true;
+    public bool ShowTerms { get; set; } = true;
+    public bool ShowFooter { get; set; } = true;
+
     public bool IsActive { get; set; } = true;
 }

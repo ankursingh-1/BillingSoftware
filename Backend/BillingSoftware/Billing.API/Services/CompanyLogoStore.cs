@@ -86,6 +86,20 @@ public class CompanyLogoStore
         return (await File.ReadAllBytesAsync(path), contentType, name);
     }
 
+    /// <summary>Reads a stored logo by file name (invoices keep the logo they were issued with).</summary>
+    public async Task<(byte[] Bytes, string ContentType)?> ReadAsync(string? storedName)
+    {
+        if (storedName == null || !StoredName.IsMatch(storedName))
+            return null;
+
+        var path = Path.Combine(_folder, storedName);
+        if (!File.Exists(path))
+            return null;
+
+        var contentType = storedName.EndsWith(".png", StringComparison.Ordinal) ? "image/png" : "image/jpeg";
+        return (await File.ReadAllBytesAsync(path), contentType);
+    }
+
     public void Delete(string? storedName)
     {
         if (storedName == null || !StoredName.IsMatch(storedName))

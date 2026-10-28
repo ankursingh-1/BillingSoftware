@@ -23,6 +23,11 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
 
         builder.HasIndex(x => x.SaleId);
 
+        builder.Property(x => x.ReceiptNumber).HasMaxLength(16);
+        builder.HasIndex(x => x.ReceiptNumber)
+               .IsUnique()
+               .HasFilter("[ReceiptNumber] IS NOT NULL");
+
         builder.HasOne(x => x.Sale)
                .WithMany(x => x.Payments)
                .HasForeignKey(x => x.SaleId)

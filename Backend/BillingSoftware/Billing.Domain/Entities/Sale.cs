@@ -49,6 +49,13 @@ public class Sale : AuditableEntity
     /// <summary>Client-generated id that makes a retried/double-clicked submit idempotent.</summary>
     public Guid? ClientRequestId { get; set; }
 
+    /// <summary>
+    /// JSON copy of the company and customer details as they were when the invoice was
+    /// created, so editing the company or customer later never changes an issued invoice.
+    /// Null for invoices created before snapshots existed (they use the current details).
+    /// </summary>
+    public string? DocumentSnapshot { get; set; }
+
     public Customer Customer { get; set; } = null!;
 
     public ICollection<SaleItem> SaleItems { get; set; }

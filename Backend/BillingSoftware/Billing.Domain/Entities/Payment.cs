@@ -12,6 +12,9 @@ public class Payment : AuditableEntity
     public int SaleId { get; set; }
     public Sale Sale { get; set; } = null!;
 
+    /// <summary>Receipt number (RCT-2627-000001). Null only for payments made before receipts existed.</summary>
+    public string? ReceiptNumber { get; set; }
+
     public decimal Amount { get; set; }
     public DateTime PaymentDate { get; set; }
     public PaymentMethod Method { get; set; }

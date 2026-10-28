@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Billing.Application\Billing.Application.csproj" />
+    <ProjectReference Include="..\Billing.API\Billing.API.csproj" />
   </ItemGroup>
 
 </Project>

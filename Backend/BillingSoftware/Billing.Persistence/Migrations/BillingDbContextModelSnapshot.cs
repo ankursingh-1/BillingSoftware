@@ -255,6 +255,11 @@ namespace Billing.Persistence.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 
+                    b.Property<string>("DefaultInvoiceFormat")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("Email")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
@@ -295,6 +300,18 @@ namespace Billing.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<bool>("ShowBankDetails")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ShowFooter")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ShowLogo")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ShowTerms")
+                        .HasColumnType("bit");
+
                     b.Property<string>("State")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -307,6 +324,9 @@ namespace Billing.Persistence.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<int>("ThermalPaperWidthMm")
+                        .HasColumnType("int");
+
                     b.Property<string>("UPIId")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -317,7 +337,10 @@ namespace Billing.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Companies", (string)null);
+                    b.ToTable("Companies", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Companies_ThermalWidth", "[ThermalPaperWidthMm] IN (58, 80)");
+                        });
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.Customer", b =>
@@ -475,6 +498,10 @@ namespace Billing.Persistence.Migrations
                     b.Property<DateTime>("PaymentDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ReceiptNumber")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
                     b.Property<string>("Reference")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -497,6 +524,10 @@ namespace Billing.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReceiptNumber")
+                        .IsUnique()
+                        .HasFilter("[ReceiptNumber] IS NOT NULL");
 
                     b.HasIndex("SaleId");
 
@@ -959,6 +990,9 @@ namespace Billing.Persistence.Migrations
 
                     b.Property<int>("CustomerId")
                         .HasColumnType("int");
+
+                    b.Property<string>("DocumentSnapshot")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("IgstTotal")
                         .HasPrecision(18, 2)
