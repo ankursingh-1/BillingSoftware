@@ -3,6 +3,7 @@ using Billing.Domain.Entities;
 using Billing.Application.Interfaces;
 using Billing.Domain.Enums;
 using Billing.Persistence.Context;
+using Billing.Shared.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Billing.API.Services;
@@ -21,6 +22,14 @@ public class PurchaseService
 
     public async Task<int> CreateAsync(CreatePurchaseDto dto)
     {
+        // Existing purchases keep their (soft-deleted) supplier, but new
+        // purchases must use a supplier that exists and has not been deleted.
+        if (!await _context.Suppliers.AnyAsync(x =>
+                x.Id == dto.SupplierId && !x.IsDeleted))
+        {
+            throw new BusinessException("Supplier not found or has been deleted.");
+        }
+
         using var transaction = await _context.Database.BeginTransactionAsync();
 
         try

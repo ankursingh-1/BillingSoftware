@@ -4,6 +4,7 @@ using Billing.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
 using Billing.Application.Interfaces;
 using Billing.Domain.Enums;
+using Billing.Shared.Exceptions;
 
 namespace Billing.API.Services;
 
@@ -22,6 +23,14 @@ public class SaleService
 
     public async Task<int> CreateAsync(CreateSaleRequest dto)
     {
+        // Existing sales keep their (soft-deleted) customer, but new sales
+        // must use a customer that exists and has not been deleted.
+        if (!await _context.Customers.AnyAsync(x =>
+                x.Id == dto.CustomerId && !x.IsDeleted))
+        {
+            throw new BusinessException("Customer not found or has been deleted.");
+        }
+
         using var transaction = await _context.Database.BeginTransactionAsync();
 
         try
