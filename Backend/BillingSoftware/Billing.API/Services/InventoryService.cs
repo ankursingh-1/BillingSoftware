@@ -10,10 +10,12 @@ namespace Billing.API.Services
     public class InventoryService : IInventoryService
     {
         private readonly BillingDbContext _context;
+        private readonly ICurrentUser _user;
 
-        public InventoryService(BillingDbContext context)
+        public InventoryService(BillingDbContext context, ICurrentUser user)
         {
             _context = context;
+            _user = user;
         }
 
         /// <summary>
@@ -43,6 +45,7 @@ namespace Billing.API.Services
 
                 StockTransactionType.Sale or
                 StockTransactionType.PurchaseReturn or
+                StockTransactionType.AdjustmentOut or
                 StockTransactionType.Damaged or
                 StockTransactionType.Expired or
                 StockTransactionType.Lost => -quantity,
@@ -95,7 +98,8 @@ OUTPUT deleted.Stock, inserted.Stock
                 CurrentStock = currentStock,
                 ReferenceNo = referenceNo,
                 Remarks = remarks ?? transactionType.ToString(),
-                CreatedOn = DateTime.UtcNow
+                CreatedOn = DateTime.UtcNow,
+                CreatedBy = _user.Email
             });
         }
 

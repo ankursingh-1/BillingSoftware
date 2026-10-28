@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Billing.Application.Interfaces;
+using Billing.API.Services;
+using Billing.Application.DTOs.StockLedger;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Billing.API.Controllers
@@ -9,27 +10,24 @@ namespace Billing.API.Controllers
     [Route("api/[controller]")]
     public class StockLedgerController : ControllerBase
     {
-        private readonly IStockLedgerService _stockLedgerService;
+        private readonly StockLedgerService _service;
 
-        public StockLedgerController(IStockLedgerService stockLedgerService)
+        public StockLedgerController(StockLedgerService service)
         {
-            _stockLedgerService = stockLedgerService;
+            _service = service;
         }
 
+        /// <summary>Paged stock movements with optional product, type, date and text filters.</summary>
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> Search([FromQuery] StockLedgerSearchRequest request)
         {
-            var result = await _stockLedgerService.GetAllAsync();
-
-            return Ok(result);
+            return Ok(await _service.SearchAsync(request));
         }
 
         [HttpGet("{productId:int}")]
         public async Task<IActionResult> GetByProduct(int productId)
         {
-            var result = await _stockLedgerService.GetByProductAsync(productId);
-
-            return Ok(result);
+            return Ok(await _service.GetByProductAsync(productId));
         }
     }
 }

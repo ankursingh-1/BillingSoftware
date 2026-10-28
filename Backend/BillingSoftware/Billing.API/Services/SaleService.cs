@@ -601,13 +601,13 @@ public class SaleService
                 {
                     Id = p.Id,
                     Amount = p.Amount,
-                    PaymentDate = p.PaymentDate,
+                    PaymentDate = p.PaymentDate.AsUtc(),
                     Method = p.Method.ToString(),
                     Reference = p.Reference,
                     Notes = p.Notes,
                     RecordedBy = p.CreatedBy,
                     IsVoided = p.IsVoided,
-                    VoidedOn = p.VoidedOn,
+                    VoidedOn = p.VoidedOn.AsUtc(),
                     VoidReason = p.VoidReason
                 })
                 .ToList(),

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,6 +16,8 @@ namespace Billing.Domain.Enums
         Adjustment = 6,
         Damaged = 7,
         Expired = 8,
-        Lost = 9
+        Lost = 9,
+        /// <summary>Manual correction that reduces stock (the opposite of <see cref="Adjustment"/>).</summary>
+        AdjustmentOut = 10
     }
 }

@@ -6,10 +6,10 @@
 
 Add-Type -AssemblyName System.Net.Http
 
-$script:Http = New-Object System.Net.Http.HttpClient
-$script:Http.Timeout = [TimeSpan]::FromSeconds(60)
-$script:BaseUrl = $null
-$script:Token = $null
+$script:ApiHttp = New-Object System.Net.Http.HttpClient
+$script:ApiHttp.Timeout = [TimeSpan]::FromSeconds(60)
+$script:ApiBaseUrl = $null
+$script:ApiToken = $null
 $script:Passed = 0
 $script:Failed = 0
 $script:Failures = @()
@@ -17,22 +17,22 @@ $script:Failures = @()
 function Connect-Api {
     param([string]$BaseUrl, [string]$Email, [string]$Password)
 
-    $script:BaseUrl = $BaseUrl.TrimEnd('/')
-    $script:Token = $null
+    $script:ApiBaseUrl = $BaseUrl.TrimEnd('/')
+    $script:ApiToken = $null
     $r = Api POST '/Auth/login' @{ email = $Email; password = $Password } -Anonymous
     if ($r.Status -ne 200 -or -not $r.Json.token) { throw "Login failed (HTTP $($r.Status))." }
-    $script:Token = $r.Json.token
+    $script:ApiToken = $r.Json.token
 }
 
-function Use-Token([string]$Token) { $script:Token = $Token }
+function Use-Token([string]$Token) { $script:ApiToken = $Token }
 
 function Api {
     param([string]$Method, [string]$Path, $Body = $null, [switch]$Anonymous, [hashtable]$Headers = @{})
 
-    $request = New-Object System.Net.Http.HttpRequestMessage ([System.Net.Http.HttpMethod]::new($Method)), ($script:BaseUrl + $Path)
+    $request = New-Object System.Net.Http.HttpRequestMessage ([System.Net.Http.HttpMethod]::new($Method)), ($script:ApiBaseUrl + $Path)
 
-    if (-not $Anonymous -and $script:Token) {
-        $request.Headers.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue('Bearer', $script:Token)
+    if (-not $Anonymous -and $script:ApiToken) {
+        $request.Headers.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue('Bearer', $script:ApiToken)
     }
     foreach ($k in $Headers.Keys) { $request.Headers.TryAddWithoutValidation($k, [string]$Headers[$k]) | Out-Null }
 
@@ -41,7 +41,7 @@ function Api {
         $request.Content = New-Object System.Net.Http.StringContent($json, [Text.Encoding]::UTF8, 'application/json')
     }
 
-    $response = $script:Http.SendAsync($request).GetAwaiter().GetResult()
+    $response = $script:ApiHttp.SendAsync($request).GetAwaiter().GetResult()
     $type = $response.Content.Headers.ContentType
     $mediaType = if ($type) { $type.MediaType } else { $null }
 
@@ -63,15 +63,15 @@ function Api-Parallel {
     param([object[]]$Requests)   # each: @{ Method = 'POST'; Path = '/Sales'; Body = @{...} }
 
     $tasks = foreach ($item in $Requests) {
-        $request = New-Object System.Net.Http.HttpRequestMessage ([System.Net.Http.HttpMethod]::new($item.Method)), ($script:BaseUrl + $item.Path)
-        if ($script:Token) {
-            $request.Headers.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue('Bearer', $script:Token)
+        $request = New-Object System.Net.Http.HttpRequestMessage ([System.Net.Http.HttpMethod]::new($item.Method)), ($script:ApiBaseUrl + $item.Path)
+        if ($script:ApiToken) {
+            $request.Headers.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue('Bearer', $script:ApiToken)
         }
         if ($null -ne $item.Body) {
             $json = if ($item.Body -is [string]) { $item.Body } else { $item.Body | ConvertTo-Json -Depth 12 -Compress }
             $request.Content = New-Object System.Net.Http.StringContent($json, [Text.Encoding]::UTF8, 'application/json')
         }
-        $script:Http.SendAsync($request)
+        $script:ApiHttp.SendAsync($request)
     }
 
     [System.Threading.Tasks.Task]::WaitAll([System.Threading.Tasks.Task[]]@($tasks))
@@ -88,9 +88,9 @@ function Api-Parallel {
 function Api-Upload {
     param([string]$Path, [string]$FilePath, [string]$FileName, [string]$ContentType, [string]$Field = 'file')
 
-    $request = New-Object System.Net.Http.HttpRequestMessage ([System.Net.Http.HttpMethod]::Post), ($script:BaseUrl + $Path)
-    if ($script:Token) {
-        $request.Headers.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue('Bearer', $script:Token)
+    $request = New-Object System.Net.Http.HttpRequestMessage ([System.Net.Http.HttpMethod]::Post), ($script:ApiBaseUrl + $Path)
+    if ($script:ApiToken) {
+        $request.Headers.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue('Bearer', $script:ApiToken)
     }
 
     $content = New-Object System.Net.Http.MultipartFormDataContent
@@ -99,7 +99,7 @@ function Api-Upload {
     $content.Add($file, $Field, $FileName)
     $request.Content = $content
 
-    $response = $script:Http.SendAsync($request).GetAwaiter().GetResult()
+    $response = $script:ApiHttp.SendAsync($request).GetAwaiter().GetResult()
     $raw = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
     $obj = $null
     if ($raw) { try { $obj = $raw | ConvertFrom-Json } catch { } }

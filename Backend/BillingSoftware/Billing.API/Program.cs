@@ -73,10 +73,14 @@ builder.Services.AddScoped<IBrandService, BrandService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<ITaxService, TaxService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
-builder.Services.AddScoped<IStockLedgerService, StockLedgerService>();
-builder.Services.AddScoped<IStockAdjustmentService, StockAdjustmentService>();
-builder.Services.AddScoped<IPurchaseReturnService, PurchaseReturnService>();
-builder.Services.AddScoped<ISalesReturnService, SalesReturnService>();
+builder.Services.AddScoped<StockLedgerService>();
+builder.Services.AddScoped<StockAdjustmentService>();
+builder.Services.AddScoped<InventoryQueryService>();
+builder.Services.AddSingleton(new Billing.Application.Inventory.StockAlertPolicy(
+    builder.Configuration.GetValue("Inventory:LowStockThreshold",
+        Billing.Application.Inventory.StockAlertPolicy.DefaultLowStockThreshold)));
+builder.Services.AddScoped<PurchaseReturnService>();
+builder.Services.AddScoped<SalesReturnService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IAppSettingService, AppSettingService>();
 
