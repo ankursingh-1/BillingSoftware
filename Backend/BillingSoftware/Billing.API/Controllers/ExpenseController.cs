@@ -1,11 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Billing.Application.DTOs.Expense;
 using Billing.Application.Interfaces;
+using Billing.Shared.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Billing.API.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = AppRoles.Admin)]
     [ApiController]
     [Route("api/[controller]")]
     public class ExpenseController : ControllerBase

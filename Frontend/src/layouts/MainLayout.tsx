@@ -2,49 +2,42 @@ import { Outlet } from "react-router-dom";
 
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
+import { LayoutProvider } from "../context/LayoutContext";
+import { useLayout } from "../hooks/useLayout";
 
-function MainLayout() {
+function Shell() {
+    const { navOpen, closeNav } = useLayout();
 
     return (
-
-        <div
-            className="app-shell"
-            style={{
-                display: "flex",
-                minHeight: "100vh",
-                background: "#f4f7fb"
-            }}
-        >
+        <div className="app-shell">
+            {navOpen && (
+                <button
+                    type="button"
+                    className="sidebar-backdrop"
+                    aria-label="Close menu"
+                    onClick={closeNav}
+                />
+            )}
 
             <Sidebar />
 
-            <div
-                style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column"
-                }}
-            >
-
+            <div className="app-main">
                 <Header />
 
-                <main
-                    style={{
-                        flex: 1,
-                        padding: "25px"
-                    }}
-                >
-
+                <main className="app-content">
                     <Outlet />
-
                 </main>
-
             </div>
-
         </div>
-
     );
+}
 
+function MainLayout() {
+    return (
+        <LayoutProvider>
+            <Shell />
+        </LayoutProvider>
+    );
 }
 
 export default MainLayout;

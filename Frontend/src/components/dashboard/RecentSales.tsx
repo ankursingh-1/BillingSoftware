@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import type { RecentSale } from "../../interfaces/dashboard/dashboard";
 
 interface RecentSalesProps {
@@ -12,6 +14,9 @@ function RecentSales({
 
             <div className="widget-header">
                 <h5>Recent Sales</h5>
+                <Link to="/sales" className="small">
+                    View all
+                </Link>
             </div>
 
             <div className="table-responsive">
@@ -43,7 +48,9 @@ function RecentSales({
                                 <tr key={sale.saleId}>
 
                                     <td>
-                                        {sale.invoiceNumber}
+                                        <Link to={`/sales/${sale.saleId}`}>
+                                            {sale.invoiceNumber}
+                                        </Link>
                                     </td>
 
                                     <td>

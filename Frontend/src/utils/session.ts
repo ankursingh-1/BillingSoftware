@@ -43,4 +43,41 @@ export function getCurrentRoles(): string[] {
     return [];
 }
 
+const EMAIL_CLAIMS = [
+    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress",
+    "email",
+];
+
+export function getCurrentEmail(): string | null {
+    const payload = readPayload();
+
+    if (!payload) {
+        return null;
+    }
+
+    for (const claim of EMAIL_CLAIMS) {
+        const value = payload[claim];
+
+        if (typeof value === "string" && value.length > 0) {
+            return value;
+        }
+    }
+
+    return null;
+}
+
 export const isAdmin = (): boolean => getCurrentRoles().includes("Admin");
+
+export function getRoleLabel(): string {
+    const roles = getCurrentRoles();
+
+    if (roles.includes("Admin")) {
+        return "Admin";
+    }
+
+    if (roles.includes("Staff")) {
+        return "Staff";
+    }
+
+    return roles[0] ?? "Signed in";
+}

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Billing.Application.DTOs.Tax;
 using Billing.Application.Interfaces;
+using Billing.Shared.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Billing.API.Controllers
@@ -24,7 +25,7 @@ namespace Billing.API.Controllers
             return Ok(result);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {
             var result = await _taxService.GetByIdAsync(id);
@@ -35,6 +36,7 @@ namespace Billing.API.Controllers
             return Ok(result);
         }
 
+        [Authorize(Roles = AppRoles.Admin)]
         [HttpPost]
         public async Task<IActionResult> Create(SaveTaxRequest request)
         {
@@ -42,7 +44,8 @@ namespace Billing.API.Controllers
             return Ok(result);
         }
 
-        [HttpPut("{id}")]
+        [Authorize(Roles = AppRoles.Admin)]
+        [HttpPut("{id:int}")]
         public async Task<IActionResult> Update(int id, SaveTaxRequest request)
         {
             var result = await _taxService.UpdateAsync(id, request);
@@ -53,7 +56,8 @@ namespace Billing.API.Controllers
             return Ok(result);
         }
 
-        [HttpDelete("{id}")]
+        [Authorize(Roles = AppRoles.Admin)]
+        [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
             await _taxService.DeleteAsync(id);

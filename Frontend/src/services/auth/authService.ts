@@ -22,6 +22,16 @@ export const login = async (
     return response.data;
 };
 
+export const changePassword = async (
+    currentPassword: string,
+    newPassword: string
+): Promise<void> => {
+    await apiClient.post("/Auth/change-password", {
+        currentPassword,
+        newPassword,
+    });
+};
+
 export const logout = (): void => {
     localStorage.removeItem("token");
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 
 import StatCard from "../../components/dashboard/StatCard";
@@ -22,10 +23,12 @@ import type {
     LowStockProduct,
     TopProduct,
 } from "../../interfaces/dashboard/dashboard";
+import { isAdmin } from "../../utils/session";
 
 import "../../styles/dashboard.css";
 
 function DashboardPage() {
+    const admin = isAdmin();
     const [summary, setSummary] =
         useState<DashboardSummary | null>(null);
 
@@ -149,6 +152,7 @@ function DashboardPage() {
                     ).toFixed(2)}`}
                     icon="bi-currency-rupee"
                     color="#2563eb"
+                    to="/sales"
                 />
 
                 <StatCard
@@ -158,6 +162,7 @@ function DashboardPage() {
                     ).toFixed(2)}`}
                     icon="bi-cart-check"
                     color="#16a34a"
+                    to={admin ? "/purchases" : undefined}
                 />
 
                 <StatCard
@@ -167,6 +172,7 @@ function DashboardPage() {
                     )}
                     icon="bi-box-seam"
                     color="#ea580c"
+                    to="/products"
                 />
 
                 <StatCard
@@ -183,6 +189,7 @@ function DashboardPage() {
                     }
                     icon="bi-graph-up-arrow"
                     color="#9333ea"
+                    to={admin ? "/reports" : undefined}
                 />
 
             </div>
@@ -300,7 +307,7 @@ function DashboardPage() {
 
                         <div className="dashboard-overview">
 
-                            <div>
+                            <Link to="/sales">
                                 <span>Total Sales</span>
                                 <strong>
                                     ₹
@@ -309,8 +316,20 @@ function DashboardPage() {
                                         0
                                     ).toFixed(2)}
                                 </strong>
-                            </div>
+                            </Link>
 
+                            {admin ? (
+                            <Link to="/purchases">
+                                <span>Total Purchase</span>
+                                <strong>
+                                    ₹
+                                    {(
+                                        summary?.totalPurchase ??
+                                        0
+                                    ).toFixed(2)}
+                                </strong>
+                            </Link>
+                            ) : (
                             <div>
                                 <span>Total Purchase</span>
                                 <strong>
@@ -321,38 +340,39 @@ function DashboardPage() {
                                     ).toFixed(2)}
                                 </strong>
                             </div>
+                            )}
 
-                            <div>
+                            <Link to="/customers">
                                 <span>Customers</span>
                                 <strong>
                                     {summary?.totalCustomers ??
                                         0}
                                 </strong>
-                            </div>
+                            </Link>
 
-                            <div>
+                            <Link to="/suppliers">
                                 <span>Suppliers</span>
                                 <strong>
                                     {summary?.totalSuppliers ??
                                         0}
                                 </strong>
-                            </div>
+                            </Link>
 
-                            <div>
+                            <Link to="/inventory">
                                 <span>Low Stock</span>
                                 <strong>
                                     {summary?.lowStockProducts ??
                                         0}
                                 </strong>
-                            </div>
+                            </Link>
 
-                            <div>
+                            <Link to="/inventory">
                                 <span>Out of Stock</span>
                                 <strong>
                                     {summary?.outOfStockProducts ??
                                         0}
                                 </strong>
-                            </div>
+                            </Link>
 
                         </div>
 

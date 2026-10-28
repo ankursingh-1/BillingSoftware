@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import type {
     LowStockProduct,
 } from "../../interfaces/dashboard/dashboard";
@@ -14,6 +16,9 @@ function LowStock({
 
             <div className="widget-header">
                 <h5>Low &amp; Out-of-Stock Products</h5>
+                <Link to="/inventory" className="small">
+                    Inventory
+                </Link>
             </div>
 
             <div className="table-responsive">
@@ -46,7 +51,11 @@ function LowStock({
                                     }
                                 >
                                     <td>
-                                        {product.productName}
+                                        <Link
+                                            to={`/products/${product.productId}/edit`}
+                                        >
+                                            {product.productName}
+                                        </Link>
                                     </td>
 
                                     <td>

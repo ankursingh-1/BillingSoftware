@@ -15,9 +15,9 @@ Do **not** set `Demo:AllowInProduction` except on a disposable production-like c
 
 3. Start the API against that copy.
 4. Sign in as an **Admin**.
-5. `POST /api/Demo/seed`
+5. Either click **Settings → Seed demo records**, or `POST /api/Demo/seed`.
 
-The call is safe to repeat. Existing DEMO SKUs and mobile numbers are reused; extra invoices are not created again.
+The call is refused unless `Demo:Enabled` is true. It is safe to repeat. Existing DEMO SKUs and mobile numbers are reused; extra invoices are not created again. Do not run this against the live shop database.
 
 ## What is created
 

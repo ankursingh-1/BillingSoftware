@@ -10,6 +10,7 @@ import {
     saveCompany,
     uploadCompanyLogo,
 } from "../../services/company/companyService";
+import { seedDemoData } from "../../services/demo/demoService";
 import { getApiErrorMessage } from "../../utils/apiError";
 import { GSTIN_PATTERN, emptyToNull } from "../../utils/validation";
 
@@ -124,6 +125,7 @@ function CompanySettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [seeding, setSeeding] = useState(false);
 
     const loadCompany = useCallback(async () => {
         try {
@@ -520,6 +522,23 @@ function CompanySettingsPage() {
                                 Used to decide CGST + SGST or IGST. Must match
                                 the GSTIN state code.
                             </div>
+                            {form.gstNumber.trim().length >= 2 &&
+                                form.stateCode &&
+                                form.gstNumber.trim().toUpperCase().slice(0, 2) !==
+                                    form.stateCode && (
+                                    <div className="alert alert-warning mt-2 mb-0">
+                                        This GSTIN starts with{" "}
+                                        {form.gstNumber
+                                            .trim()
+                                            .toUpperCase()
+                                            .slice(0, 2)}
+                                        , which does not match the selected
+                                        state ({form.stateCode}). Correct the
+                                        GSTIN or the state before saving. The
+                                        saved tax identity is not changed
+                                        automatically.
+                                    </div>
+                                )}
                         </div>
 
                         <div className="col-md-4">
@@ -886,6 +905,51 @@ function CompanySettingsPage() {
                     </button>
                 </div>
             </form>
+
+            <div className="company-card mt-4">
+                <div className="company-card-header">
+                    <div className="section-icon">
+                        <i className="bi bi-beaker"></i>
+                    </div>
+                    <div>
+                        <h5>Demo data</h5>
+                        <span>
+                            Admin-only. Disabled unless Demo:Enabled is set on a
+                            copy database. Never run this on the live shop.
+                        </span>
+                    </div>
+                </div>
+                <p className="text-muted">
+                    Creates labelled DEMO products, customers, a purchase, paid
+                    and partial sales, and an expense. Safe to repeat; existing
+                    DEMO rows are reused.
+                </p>
+                <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    disabled={seeding}
+                    onClick={() => {
+                        setSeeding(true);
+                        void seedDemoData()
+                            .then((result) =>
+                                toast.success(
+                                    result.message || "Demo records are in place."
+                                )
+                            )
+                            .catch((error) =>
+                                toast.error(
+                                    getApiErrorMessage(
+                                        error,
+                                        "Demo seeding is disabled on this API."
+                                    )
+                                )
+                            )
+                            .finally(() => setSeeding(false));
+                    }}
+                >
+                    {seeding ? "Seeding..." : "Seed demo records"}
+                </button>
+            </div>
         </div>
     );
 }

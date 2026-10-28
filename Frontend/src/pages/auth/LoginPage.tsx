@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import type { FormEvent } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import axios from "axios";
 
@@ -7,12 +8,18 @@ import { login } from "../../services/auth/authService";
 
 function LoginPage() {
     const navigate = useNavigate();
+    const existing = localStorage.getItem("token");
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
-    
-    const handleLogin = async () => {
+
+    if (existing) {
+        return <Navigate to="/dashboard" replace />;
+    }
+
+    const handleLogin = async (event: FormEvent) => {
+        event.preventDefault();
         try {
             setLoading(true);
 
@@ -65,12 +72,13 @@ function LoginPage() {
 
                 <div className="col-lg-5 d-flex justify-content-center align-items-center">
 
-                    <div
+                    <form
                         className="card shadow-lg border-0 p-5"
                         style={{
                             width: "430px",
                             borderRadius: "18px"
                         }}
+                        onSubmit={(event) => void handleLogin(event)}
                     >
 
                         <h2 className="fw-bold mb-4">
@@ -112,18 +120,18 @@ function LoginPage() {
                         </div>
 
                         <button
+                            type="submit"
                             className="btn btn-primary w-100"
                             disabled={
                                 loading ||
                                 email.trim() === "" ||
                                 password.trim() === ""
                             }
-                            onClick={handleLogin}
                         >
                             {loading ? "Signing In..." : "Login"}
                         </button>
 
-                    </div>
+                    </form>
 
                 </div>
 

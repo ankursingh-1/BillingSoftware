@@ -1,5 +1,6 @@
 ﻿using Billing.Application.DTOs.Brand;
 using Billing.Application.Interfaces;
+using Billing.Shared.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -35,6 +36,7 @@ public class BrandController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Roles = AppRoles.Admin)]
     [HttpPost]
     public async Task<IActionResult> Create(SaveBrandRequest request)
     {
@@ -43,6 +45,7 @@ public class BrandController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
+    [Authorize(Roles = AppRoles.Admin)]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, SaveBrandRequest request)
     {
@@ -54,6 +57,7 @@ public class BrandController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize(Roles = AppRoles.Admin)]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {

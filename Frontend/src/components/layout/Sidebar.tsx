@@ -1,4 +1,6 @@
 import { NavLink } from "react-router-dom";
+
+import { useLayout } from "../../hooks/useLayout";
 import { logout } from "../../services/auth/authService";
 import { isAdmin } from "../../utils/session";
 
@@ -25,6 +27,12 @@ const menuItems: MenuItem[] = [
         title: "Categories",
         path: "/categories",
         icon: "bi-grid",
+    },
+    {
+        title: "Brands, units & tax",
+        path: "/catalog",
+        icon: "bi-tags",
+        adminOnly: true,
     },
     {
         title: "Inventory",
@@ -61,11 +69,13 @@ const menuItems: MenuItem[] = [
         title: "Expenses",
         path: "/expenses",
         icon: "bi-wallet2",
+        adminOnly: true,
     },
     {
         title: "Reports",
         path: "/reports",
         icon: "bi-graph-up-arrow",
+        adminOnly: true,
     },
     {
         title: "Settings",
@@ -77,10 +87,11 @@ const menuItems: MenuItem[] = [
 
 function Sidebar() {
     const admin = isAdmin();
+    const { navOpen, closeNav } = useLayout();
     const visibleItems = menuItems.filter((item) => admin || !item.adminOnly);
 
     return (
-        <aside className="sidebar">
+        <aside className={`sidebar${navOpen ? " is-open" : ""}`}>
 
             <div className="sidebar-logo">
                 <div className="logo-circle">
@@ -101,6 +112,7 @@ function Sidebar() {
                         <NavLink
                             to={item.path}
                             end={item.path === "/dashboard"}
+                            onClick={closeNav}
                             className={({ isActive }) =>
                                 isActive
                                     ? "menu-link active-menu"

@@ -2,12 +2,13 @@
 using Billing.Application.DTOs.Expense;
 using Billing.Application.DTOs.Reports;
 using Billing.Application.Interfaces;
+using Billing.Shared.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Billing.API.Controllers;
 
-[Authorize]
+[Authorize(Roles = AppRoles.Admin)]
 [ApiController]
 [Route("api/[controller]")]
 public class ReportsController : ControllerBase

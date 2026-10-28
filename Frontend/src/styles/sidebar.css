@@ -185,24 +185,58 @@
     color: gray;
 }
 
+.app-shell {
+    display: flex;
+    min-height: 100vh;
+    background: #f4f7fb;
+}
+
+.app-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.app-content {
+    flex: 1;
+    padding: 25px;
+}
+
+.sidebar-backdrop {
+    display: none;
+}
+
 /* ===========================
    RESPONSIVE
 =========================== */
 
-@media(max-width:992px){
-
-    .sidebar{
-        width:80px;
+@media (max-width: 992px) {
+    .sidebar {
+        position: fixed;
+        z-index: 1040;
+        transform: translateX(-100%);
+        width: 270px;
     }
 
-    .sidebar span,
-    .sidebar-logo div,
-    .logout-btn{
-        display:none;
+    .sidebar.is-open {
+        transform: translateX(0);
     }
 
-    .search-box{
-        width:220px;
+    .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 1030;
+        border: 0;
+        background: rgba(15, 23, 42, 0.45);
     }
 
+    .app-content {
+        padding: 16px;
+    }
+
+    .top-header {
+        padding: 0 16px;
+    }
 }

@@ -28,10 +28,19 @@ public class AuthorizationAttributeTests
     }
 
     [Fact]
-    public void Expenses_and_reports_require_a_signed_in_user()
+    public void Expenses_and_reports_are_admin_only()
     {
-        Assert.NotNull(typeof(ExpenseController).GetCustomAttribute<AuthorizeAttribute>());
-        Assert.NotNull(typeof(ReportsController).GetCustomAttribute<AuthorizeAttribute>());
+        Assert.Equal(AppRoles.Admin, typeof(ExpenseController).GetCustomAttribute<AuthorizeAttribute>()!.Roles);
+        Assert.Equal(AppRoles.Admin, typeof(ReportsController).GetCustomAttribute<AuthorizeAttribute>()!.Roles);
+    }
+
+    [Fact]
+    public void Change_password_requires_a_signed_in_user()
+    {
+        var method = typeof(AuthController).GetMethod(nameof(AuthController.ChangePassword));
+        Assert.NotNull(method);
+        Assert.NotNull(method!.GetCustomAttribute<AuthorizeAttribute>());
+        Assert.Contains("change-password", Routes(typeof(AuthController)));
     }
 
     [Fact]

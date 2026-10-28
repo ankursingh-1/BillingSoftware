@@ -26,6 +26,7 @@ import ReturnsPage from "../pages/returns/ReturnsPage";
 import ReturnDetailPage from "../pages/returns/ReturnDetailPage";
 import ExpensesPage from "../pages/expenses/ExpensesPage";
 import ReportsPage from "../pages/reports/ReportsPage";
+import CatalogPage from "../pages/catalog/CatalogPage";
 
 import AdminRoute from "./AdminRoute";
 import ProtectedRoute from "./ProtectedRoute";
@@ -100,6 +101,14 @@ export default function AppRoutes() {
                         path="/categories"
                         element={<CategoriesPage />}
                     />
+                    <Route
+                        path="/catalog"
+                        element={
+                            <AdminRoute>
+                                <CatalogPage />
+                            </AdminRoute>
+                        }
+                    />
 
                     {/* Customers */}
                     <Route
@@ -166,11 +175,19 @@ export default function AppRoutes() {
                     {/* Returns */}
                     <Route
                         path="/expenses"
-                        element={<ExpensesPage />}
+                        element={
+                            <AdminRoute>
+                                <ExpensesPage />
+                            </AdminRoute>
+                        }
                     />
                     <Route
                         path="/reports"
-                        element={<ReportsPage />}
+                        element={
+                            <AdminRoute>
+                                <ReportsPage />
+                            </AdminRoute>
+                        }
                     />
                     <Route
                         path="/returns"
