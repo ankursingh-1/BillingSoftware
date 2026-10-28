@@ -4,9 +4,14 @@ import { getGstStates } from "../services/lookups/lookupService";
 
 import type { GstState } from "../interfaces/lookups/lookups";
 
-/** GST state list for dropdowns. Empty until loaded (or if loading fails). */
-export function useGstStates(): GstState[] {
+/**
+ * GST state list for dropdowns. `ready` is true after the request finishes
+ * (even if it failed), so a select can wait until options exist before
+ * attaching a saved value.
+ */
+export function useGstStates(): { states: GstState[]; ready: boolean } {
     const [states, setStates] = useState<GstState[]>([]);
+    const [ready, setReady] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -18,8 +23,13 @@ export function useGstStates(): GstState[] {
                 }
             })
             .catch(() => {
-                // The dropdown simply stays empty; saving still works because
-                // state is optional and the server validates it.
+                // The dropdown stays empty; saving still works because state
+                // is optional and the server validates it.
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setReady(true);
+                }
             });
 
         return () => {
@@ -27,5 +37,5 @@ export function useGstStates(): GstState[] {
         };
     }, []);
 
-    return states;
+    return { states, ready };
 }

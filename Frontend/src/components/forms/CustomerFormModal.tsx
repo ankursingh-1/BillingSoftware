@@ -280,6 +280,7 @@ function CustomerFormModal({
 
                 <PartyTaxFields
                     idPrefix="customer"
+                    savedCode={customer?.stateCode}
                     stateProps={register("stateCode")}
                     gstinProps={register("gstin", {
                         validate: (value) => {

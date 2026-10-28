@@ -1,4 +1,7 @@
+import type { InvoiceFormat } from "../company/company";
 import type { PaymentMethod } from "../lookups/lookups";
+
+export type { InvoiceFormat };
 
 export type PaymentStatus =
     | "NotRecorded"
@@ -55,6 +58,9 @@ export interface InvoiceCompany {
     gstin: string | null;
     pan: string | null;
     hasLogo: boolean;
+    website: string | null;
+    /** Stored file for this invoice; served at /api/Company/logo/{file}. */
+    logoFile: string | null;
     bankName: string | null;
     accountNumber: string | null;
     ifscCode: string | null;
@@ -85,12 +91,22 @@ export interface SaleItemDetail {
     returnableQuantity: number;
 }
 
+export interface InvoiceSettings {
+    defaultFormat: InvoiceFormat;
+    thermalPaperWidthMm: 58 | 80;
+    showBankDetails: boolean;
+    showLogo: boolean;
+    showTerms: boolean;
+    showFooter: boolean;
+}
+
 export interface SalePayment {
     id: number;
     amount: number;
     paymentDate: string;
     method: PaymentMethod;
     reference: string | null;
+    receiptNumber: string | null;
     notes: string | null;
     recordedBy: string | null;
     isVoided: boolean;
@@ -114,6 +130,8 @@ export interface SaleDetail {
     remarks: string | null;
     customer: SaleCustomer;
     company: InvoiceCompany;
+    /** Print preferences from current company settings (not frozen on the invoice). */
+    settings: InvoiceSettings;
     subtotal: number;
     cgstTotal: number;
     sgstTotal: number;

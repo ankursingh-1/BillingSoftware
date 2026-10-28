@@ -137,6 +137,36 @@ textarea.form-control {
     margin: 0;
 }
 
+.logo-row {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.logo-preview {
+    max-height: 96px;
+    max-width: 220px;
+    object-fit: contain;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.logo-placeholder {
+    width: 140px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    color: #9ca3af;
+    font-size: 13px;
+}
+
 @media (max-width: 768px) {
     .company-settings-page {
         width: 100%;

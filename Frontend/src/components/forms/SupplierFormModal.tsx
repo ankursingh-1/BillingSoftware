@@ -315,6 +315,7 @@ function SupplierFormModal({
 
                 <PartyTaxFields
                     idPrefix="supplier"
+                    savedCode={supplier?.stateCode}
                     stateProps={register("stateCode")}
                     gstinProps={register("gstin", {
                         validate: (value) => {

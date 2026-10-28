@@ -19,7 +19,9 @@
 }
 
 /* .data-card clips its content; the pickers need to overflow the card. */
-.data-card.pos-panel {
+.data-card.pos-panel,
+.pos-panel,
+.pos-results {
     overflow: visible;
 }
 
@@ -35,7 +37,7 @@
 
 .pos-dropdown {
     position: absolute;
-    z-index: 20;
+    z-index: 30;
     left: 0;
     right: 0;
     top: 100%;

@@ -1,6 +1,6 @@
 import { isAxiosError } from "axios";
 
-import api from "../auth/authService";
+import apiClient from "../api/apiClient";
 
 import type {
     Company,
@@ -9,7 +9,7 @@ import type {
 
 export const getCompany = async (): Promise<Company | null> => {
     try {
-        const response = await api.get<Company>("/Company");
+        const response = await apiClient.get<Company>("/Company");
 
         return response.data;
     } catch (error: unknown) {
@@ -24,10 +24,21 @@ export const getCompany = async (): Promise<Company | null> => {
 export const saveCompany = async (
     request: SaveCompanyRequest
 ): Promise<Company> => {
-    const response = await api.post<Company>(
-        "/Company",
-        request
-    );
+    const response = await apiClient.post<Company>("/Company", request);
 
     return response.data;
+};
+
+export const uploadCompanyLogo = async (file: File): Promise<void> => {
+    const body = new FormData();
+
+    body.append("file", file);
+
+    await apiClient.post("/Company/logo", body, {
+        headers: { "Content-Type": "multipart/form-data" },
+    });
+};
+
+export const removeCompanyLogo = async (): Promise<void> => {
+    await apiClient.delete("/Company/logo");
 };

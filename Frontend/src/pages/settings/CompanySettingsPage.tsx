@@ -1,32 +1,70 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { isAxiosError } from "axios";
 import { toast } from "react-toastify";
 
+import { API_URL } from "../../config/api";
+import { useGstStates } from "../../hooks/useGstStates";
 import {
     getCompany,
+    removeCompanyLogo,
     saveCompany,
+    uploadCompanyLogo,
 } from "../../services/company/companyService";
+import { getApiErrorMessage } from "../../utils/apiError";
+import { GSTIN_PATTERN, emptyToNull } from "../../utils/validation";
 
 import type {
+    InvoiceFormat,
     SaveCompanyRequest,
 } from "../../interfaces/company/company";
 
 import "../../styles/company-settings.css";
 
-const initialForm: SaveCompanyRequest = {
+const PREFIX_PATTERN = /^[A-Za-z0-9]{1,4}$/;
+const PAN_PATTERN = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
+interface FormState {
+    companyName: string;
+    gstNumber: string;
+    panNumber: string;
+    address: string;
+    city: string;
+    stateCode: string;
+    country: string;
+    pincode: string;
+    phone: string;
+    email: string;
+    website: string;
+    invoicePrefix: string;
+    currency: string;
+    bankName: string;
+    accountNumber: string;
+    ifscCode: string;
+    upiId: string;
+    termsAndConditions: string;
+    footerMessage: string;
+    defaultInvoiceFormat: InvoiceFormat;
+    thermalPaperWidthMm: 58 | 80;
+    showBankDetails: boolean;
+    showLogo: boolean;
+    showTerms: boolean;
+    showFooter: boolean;
+    isActive: boolean;
+}
+
+const emptyForm: FormState = {
     companyName: "",
     gstNumber: "",
     panNumber: "",
     address: "",
     city: "",
-    state: "",
+    stateCode: "",
     country: "India",
     pincode: "",
     phone: "",
     email: "",
     website: "",
-    logoPath: "",
     invoicePrefix: "INV",
     currency: "INR",
     bankName: "",
@@ -35,15 +73,57 @@ const initialForm: SaveCompanyRequest = {
     upiId: "",
     termsAndConditions: "",
     footerMessage: "",
+    defaultInvoiceFormat: "A4",
+    thermalPaperWidthMm: 80,
+    showBankDetails: false,
+    showLogo: true,
+    showTerms: true,
+    showFooter: true,
     isActive: true,
 };
 
-function CompanySettingsPage() {
-    const [form, setForm] =
-        useState<SaveCompanyRequest>(initialForm);
+function toPayload(form: FormState): SaveCompanyRequest {
+    return {
+        companyName: form.companyName.trim(),
+        gstNumber: emptyToNull(form.gstNumber.toUpperCase()),
+        panNumber: emptyToNull(form.panNumber.toUpperCase()),
+        address: emptyToNull(form.address),
+        city: emptyToNull(form.city),
+        state: null,
+        stateCode: emptyToNull(form.stateCode),
+        country: emptyToNull(form.country),
+        pincode: emptyToNull(form.pincode),
+        phone: emptyToNull(form.phone),
+        email: emptyToNull(form.email),
+        website: emptyToNull(form.website),
+        invoicePrefix: form.invoicePrefix.trim().toUpperCase(),
+        currency: form.currency.trim().toUpperCase(),
+        bankName: emptyToNull(form.bankName),
+        accountNumber: emptyToNull(form.accountNumber),
+        ifscCode: emptyToNull(form.ifscCode.toUpperCase()),
+        upiId: emptyToNull(form.upiId),
+        termsAndConditions: emptyToNull(form.termsAndConditions),
+        footerMessage: emptyToNull(form.footerMessage),
+        defaultInvoiceFormat: form.defaultInvoiceFormat,
+        thermalPaperWidthMm: form.thermalPaperWidthMm,
+        showBankDetails: form.showBankDetails,
+        showLogo: form.showLogo,
+        showTerms: form.showTerms,
+        showFooter: form.showFooter,
+        isActive: form.isActive,
+    };
+}
 
+function CompanySettingsPage() {
+    const { states, ready } = useGstStates();
+    const fileRef = useRef<HTMLInputElement>(null);
+
+    const [form, setForm] = useState<FormState>(emptyForm);
+    const [hasLogo, setHasLogo] = useState(false);
+    const [logoKey, setLogoKey] = useState(0);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
     const loadCompany = useCallback(async () => {
         try {
@@ -58,28 +138,35 @@ function CompanySettingsPage() {
                     panNumber: company.panNumber ?? "",
                     address: company.address ?? "",
                     city: company.city ?? "",
-                    state: company.state ?? "",
+                    stateCode: company.stateCode ?? "",
                     country: company.country ?? "India",
                     pincode: company.pincode ?? "",
                     phone: company.phone ?? "",
                     email: company.email ?? "",
                     website: company.website ?? "",
-                    logoPath: company.logoPath ?? "",
                     invoicePrefix: company.invoicePrefix || "INV",
                     currency: company.currency || "INR",
                     bankName: company.bankName ?? "",
                     accountNumber: company.accountNumber ?? "",
                     ifscCode: company.ifscCode ?? "",
                     upiId: company.upiId ?? "",
-                    termsAndConditions:
-                        company.termsAndConditions ?? "",
-                    footerMessage:
-                        company.footerMessage ?? "",
+                    termsAndConditions: company.termsAndConditions ?? "",
+                    footerMessage: company.footerMessage ?? "",
+                    defaultInvoiceFormat: company.defaultInvoiceFormat || "A4",
+                    thermalPaperWidthMm:
+                        company.thermalPaperWidthMm === 58 ? 58 : 80,
+                    showBankDetails: company.showBankDetails,
+                    showLogo: company.showLogo,
+                    showTerms: company.showTerms,
+                    showFooter: company.showFooter,
                     isActive: company.isActive,
                 });
+                setHasLogo(company.hasLogo);
             }
-        } catch {
-            toast.error("Unable to load company settings.");
+        } catch (error) {
+            toast.error(
+                getApiErrorMessage(error, "Unable to load company settings.")
+            );
         } finally {
             setLoading(false);
         }
@@ -91,9 +178,7 @@ function CompanySettingsPage() {
     }, [loadCompany]);
 
     const handleChange = (
-        e: ChangeEvent<
-            HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-        >
+        e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
     ) => {
         const { name, value } = e.target;
 
@@ -103,78 +188,123 @@ function CompanySettingsPage() {
         }));
     };
 
-    const handleActiveChange = (
-        e: ChangeEvent<HTMLInputElement>
-    ) => {
+    const handleToggle = (e: ChangeEvent<HTMLInputElement>) => {
+        const { name, checked } = e.target;
+
         setForm((previous) => ({
             ...previous,
-            isActive: e.target.checked,
+            [name]: checked,
         }));
     };
 
-    const handleSubmit = async (
-        e: FormEvent<HTMLFormElement>
-    ) => {
+    const validate = (): string | null => {
+        if (!form.companyName.trim()) {
+            return "Company name is required.";
+        }
+
+        if (!PREFIX_PATTERN.test(form.invoicePrefix.trim())) {
+            return "The invoice prefix must be 1 to 4 letters or digits.";
+        }
+
+        const gstin = form.gstNumber.trim().toUpperCase();
+
+        if (gstin && !GSTIN_PATTERN.test(gstin)) {
+            return "Enter a valid 15-character GSTIN.";
+        }
+
+        if (
+            gstin &&
+            form.stateCode &&
+            gstin.slice(0, 2) !== form.stateCode
+        ) {
+            return `The GSTIN starts with ${gstin.slice(0, 2)} but the selected state is ${form.stateCode}.`;
+        }
+
+        const pan = form.panNumber.trim().toUpperCase();
+
+        if (pan && !PAN_PATTERN.test(pan)) {
+            return "Enter a valid 10-character PAN (for example ABCDE1234F).";
+        }
+
+        return null;
+    };
+
+    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        if (!form.companyName.trim()) {
-            toast.error("Company name is required.");
-            return;
-        }
+        const problem = validate();
 
-        if (!form.invoicePrefix.trim()) {
-            toast.error("Invoice prefix is required.");
-            return;
-        }
-
-        if (!form.currency.trim()) {
-            toast.error("Currency is required.");
+        if (problem) {
+            toast.error(problem);
             return;
         }
 
         try {
             setSaving(true);
-            await saveCompany(form);
-            toast.success(
-                "Company settings saved successfully."
-            );
-
+            await saveCompany(toPayload(form));
+            toast.success("Company settings saved.");
             await loadCompany();
-        } catch (error: unknown) {
-            const errors = isAxiosError<{
-                errors?: Record<string, string[]>;
-            }>(error)
-                ? error.response?.data?.errors
-                : undefined;
-
-            if (errors) {
-                Object.values(errors)
-                    .flat()
-                    .forEach((message) => {
-                        toast.error(String(message));
-                    });
-            } else {
-                toast.error(
-                    "Unable to save company settings."
-                );
-            }
+        } catch (error) {
+            toast.error(
+                getApiErrorMessage(error, "Unable to save company settings.")
+            );
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleLogo = async (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+
+        e.target.value = "";
+
+        if (!file) {
+            return;
+        }
+
+        if (!["image/png", "image/jpeg"].includes(file.type)) {
+            toast.error("Upload a PNG or JPEG image.");
+            return;
+        }
+
+        if (file.size > MAX_LOGO_BYTES) {
+            toast.error("The logo must be 2 MB or smaller.");
+            return;
+        }
+
+        try {
+            setUploading(true);
+            await uploadCompanyLogo(file);
+            setHasLogo(true);
+            setLogoKey((key) => key + 1);
+            toast.success("Logo saved. Issued invoices keep the logo they were created with.");
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, "Unable to upload the logo."));
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleRemoveLogo = async () => {
+        try {
+            setUploading(true);
+            await removeCompanyLogo();
+            setHasLogo(false);
+            setLogoKey((key) => key + 1);
+            toast.success("Logo removed from new invoices. Issued invoices are unchanged.");
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, "Unable to remove the logo."));
+        } finally {
+            setUploading(false);
         }
     };
 
     if (loading) {
         return (
             <div className="company-loading">
-                <div
-                    className="spinner-border text-primary"
-                    role="status"
-                >
-                    <span className="visually-hidden">
-                        Loading...
-                    </span>
+                <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
                 </div>
-
                 <p>Loading company settings...</p>
             </div>
         );
@@ -182,537 +312,561 @@ function CompanySettingsPage() {
 
     return (
         <div className="company-settings-page">
-
             <div className="company-page-header">
                 <div>
                     <h2>Company Settings</h2>
                     <p>
-                        Manage your business information,
-                        invoice and payment details.
+                        Business details printed on new invoices. Changing them
+                        does not rewrite invoices already issued.
                     </p>
                 </div>
             </div>
 
             <form onSubmit={handleSubmit}>
-
-                {/* Company Information */}
-
                 <div className="company-card">
-
                     <div className="company-card-header">
                         <div className="section-icon">
                             <i className="bi bi-building"></i>
                         </div>
-
                         <div>
                             <h5>Company Information</h5>
-                            <span>
-                                Basic business information
-                            </span>
+                            <span>Name, tax IDs and contact</span>
                         </div>
                     </div>
 
                     <div className="row g-4">
-
                         <div className="col-md-8">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="companyName">
                                 Company Name
                                 <span className="required">*</span>
                             </label>
-
                             <input
+                                id="companyName"
                                 type="text"
                                 name="companyName"
                                 className="form-control"
                                 value={form.companyName}
                                 onChange={handleChange}
                                 maxLength={200}
-                                placeholder="Enter company name"
                                 required
                             />
                         </div>
 
                         <div className="col-md-4">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="invoicePrefix">
                                 Invoice Prefix
                                 <span className="required">*</span>
                             </label>
-
                             <input
+                                id="invoicePrefix"
                                 type="text"
                                 name="invoicePrefix"
-                                className="form-control"
+                                className="form-control text-uppercase"
                                 value={form.invoicePrefix}
                                 onChange={handleChange}
-                                maxLength={10}
-                                placeholder="INV"
+                                maxLength={4}
                                 required
                             />
+                            <div className="form-text">
+                                1–4 letters or digits. Invoice numbers are
+                                limited to 16 characters.
+                            </div>
                         </div>
 
                         <div className="col-md-6">
-                            <label className="form-label">
-                                GST Number
+                            <label className="form-label" htmlFor="gstNumber">
+                                GSTIN
                             </label>
-
                             <input
+                                id="gstNumber"
                                 type="text"
                                 name="gstNumber"
-                                className="form-control"
+                                className="form-control text-uppercase"
                                 value={form.gstNumber}
                                 onChange={handleChange}
                                 maxLength={15}
-                                placeholder="Enter GST number"
                             />
                         </div>
 
                         <div className="col-md-6">
-                            <label className="form-label">
-                                PAN Number
+                            <label className="form-label" htmlFor="panNumber">
+                                PAN
                             </label>
-
                             <input
+                                id="panNumber"
                                 type="text"
                                 name="panNumber"
-                                className="form-control"
+                                className="form-control text-uppercase"
                                 value={form.panNumber}
                                 onChange={handleChange}
                                 maxLength={10}
-                                placeholder="Enter PAN number"
                             />
                         </div>
 
                         <div className="col-md-4">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="phone">
                                 Phone
                             </label>
-
                             <input
+                                id="phone"
                                 type="tel"
                                 name="phone"
                                 className="form-control"
                                 value={form.phone}
                                 onChange={handleChange}
-                                placeholder="Enter phone number"
                             />
                         </div>
 
                         <div className="col-md-4">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="email">
                                 Email
                             </label>
-
                             <input
+                                id="email"
                                 type="email"
                                 name="email"
                                 className="form-control"
                                 value={form.email}
                                 onChange={handleChange}
-                                placeholder="company@example.com"
                             />
                         </div>
 
                         <div className="col-md-4">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="website">
                                 Website
                             </label>
-
                             <input
+                                id="website"
                                 type="url"
                                 name="website"
                                 className="form-control"
                                 value={form.website}
                                 onChange={handleChange}
-                                placeholder="https://example.com"
+                                placeholder="https://"
                             />
                         </div>
-
                     </div>
                 </div>
 
-                {/* Address */}
-
                 <div className="company-card">
-
                     <div className="company-card-header">
                         <div className="section-icon">
                             <i className="bi bi-geo-alt"></i>
                         </div>
-
                         <div>
                             <h5>Business Address</h5>
-                            <span>
-                                Address shown on invoices
-                            </span>
+                            <span>Address shown on invoices</span>
                         </div>
                     </div>
 
                     <div className="row g-4">
-
                         <div className="col-12">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="address">
                                 Address
                             </label>
-
                             <textarea
+                                id="address"
                                 name="address"
                                 className="form-control"
                                 rows={3}
                                 value={form.address}
                                 onChange={handleChange}
                                 maxLength={500}
-                                placeholder="Enter complete business address"
                             />
                         </div>
 
                         <div className="col-md-4">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="city">
                                 City
                             </label>
-
                             <input
+                                id="city"
                                 type="text"
                                 name="city"
                                 className="form-control"
                                 value={form.city}
                                 onChange={handleChange}
-                                placeholder="City"
                             />
                         </div>
 
                         <div className="col-md-4">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="stateCode">
                                 State
                             </label>
-
-                            <input
-                                type="text"
-                                name="state"
-                                className="form-control"
-                                value={form.state}
+                            <select
+                                id="stateCode"
+                                name="stateCode"
+                                className="form-select"
+                                value={form.stateCode}
                                 onChange={handleChange}
-                                placeholder="State"
-                            />
+                                disabled={!ready}
+                            >
+                                <option value="">Not specified</option>
+                                {form.stateCode &&
+                                    !states.some(
+                                        (s) => s.code === form.stateCode
+                                    ) && (
+                                        <option value={form.stateCode}>
+                                            {form.stateCode}
+                                        </option>
+                                    )}
+                                {states.map((state) => (
+                                    <option key={state.code} value={state.code}>
+                                        {state.name} ({state.code})
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="form-text">
+                                Used to decide CGST + SGST or IGST. Must match
+                                the GSTIN state code.
+                            </div>
                         </div>
 
                         <div className="col-md-4">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="country">
                                 Country
                             </label>
-
                             <input
+                                id="country"
                                 type="text"
                                 name="country"
                                 className="form-control"
                                 value={form.country}
                                 onChange={handleChange}
-                                placeholder="Country"
                             />
                         </div>
 
                         <div className="col-md-4">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="pincode">
                                 Pincode
                             </label>
-
                             <input
+                                id="pincode"
                                 type="text"
                                 name="pincode"
                                 className="form-control"
                                 value={form.pincode}
                                 onChange={handleChange}
                                 maxLength={10}
-                                placeholder="Pincode"
                             />
                         </div>
-
                     </div>
                 </div>
 
-                {/* Invoice & Currency */}
-
                 <div className="company-card">
-
                     <div className="company-card-header">
                         <div className="section-icon">
-                            <i className="bi bi-receipt"></i>
+                            <i className="bi bi-printer"></i>
                         </div>
-
                         <div>
-                            <h5>Invoice Settings</h5>
+                            <h5>Invoice print</h5>
                             <span>
-                                Invoice and currency configuration
+                                Default layout. You can still pick a format
+                                when printing a single invoice.
                             </span>
                         </div>
                     </div>
 
                     <div className="row g-4">
-
                         <div className="col-md-6">
-                            <label className="form-label">
-                                Invoice Prefix
-                                <span className="required">*</span>
+                            <label
+                                className="form-label"
+                                htmlFor="defaultInvoiceFormat"
+                            >
+                                Default format
                             </label>
-
-                            <input
-                                type="text"
-                                name="invoicePrefix"
-                                className="form-control"
-                                value={form.invoicePrefix}
+                            <select
+                                id="defaultInvoiceFormat"
+                                name="defaultInvoiceFormat"
+                                className="form-select"
+                                value={form.defaultInvoiceFormat}
                                 onChange={handleChange}
-                                maxLength={10}
-                                required
-                            />
+                            >
+                                <option value="A4">A4 tax invoice</option>
+                                <option value="Compact">
+                                    Compact counter bill (A5)
+                                </option>
+                                <option value="Thermal">Thermal receipt</option>
+                            </select>
                         </div>
 
                         <div className="col-md-6">
-                            <label className="form-label">
+                            <label
+                                className="form-label"
+                                htmlFor="thermalPaperWidthMm"
+                            >
+                                Thermal paper width
+                            </label>
+                            <select
+                                id="thermalPaperWidthMm"
+                                name="thermalPaperWidthMm"
+                                className="form-select"
+                                value={form.thermalPaperWidthMm}
+                                onChange={(e) =>
+                                    setForm((previous) => ({
+                                        ...previous,
+                                        thermalPaperWidthMm: Number(
+                                            e.target.value
+                                        ) as 58 | 80,
+                                    }))
+                                }
+                            >
+                                <option value={80}>80 mm</option>
+                                <option value={58}>58 mm</option>
+                            </select>
+                        </div>
+
+                        <div className="col-md-6">
+                            <label className="form-label" htmlFor="currency">
                                 Currency
                                 <span className="required">*</span>
                             </label>
-
                             <select
+                                id="currency"
                                 name="currency"
                                 className="form-select"
                                 value={form.currency}
                                 onChange={handleChange}
                                 required
                             >
-                                <option value="INR">
-                                    INR - Indian Rupee
-                                </option>
-                                <option value="USD">
-                                    USD - US Dollar
-                                </option>
-                                <option value="EUR">
-                                    EUR - Euro
-                                </option>
-                                <option value="GBP">
-                                    GBP - British Pound
-                                </option>
+                                <option value="INR">INR - Indian Rupee</option>
                             </select>
                         </div>
 
+                        {(
+                            [
+                                ["showLogo", "Show logo on invoices"],
+                                ["showBankDetails", "Show bank details (off by default)"],
+                                ["showTerms", "Show terms & conditions"],
+                                ["showFooter", "Show footer message"],
+                            ] as const
+                        ).map(([name, label]) => (
+                            <div className="col-md-6" key={name}>
+                                <div className="form-check form-switch">
+                                    <input
+                                        className="form-check-input"
+                                        type="checkbox"
+                                        role="switch"
+                                        id={name}
+                                        name={name}
+                                        checked={form[name]}
+                                        onChange={handleToggle}
+                                    />
+                                    <label
+                                        className="form-check-label"
+                                        htmlFor={name}
+                                    >
+                                        {label}
+                                    </label>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                {/* Bank Details */}
-
                 <div className="company-card">
-
                     <div className="company-card-header">
                         <div className="section-icon">
                             <i className="bi bi-bank"></i>
                         </div>
-
                         <div>
-                            <h5>Bank & Payment Details</h5>
+                            <h5>Bank &amp; payment details</h5>
                             <span>
-                                Payment information for invoices
+                                Only printed when “Show bank details” is on
                             </span>
                         </div>
                     </div>
 
                     <div className="row g-4">
-
                         <div className="col-md-6">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="bankName">
                                 Bank Name
                             </label>
-
                             <input
+                                id="bankName"
                                 type="text"
                                 name="bankName"
                                 className="form-control"
                                 value={form.bankName}
                                 onChange={handleChange}
-                                placeholder="Bank name"
                             />
                         </div>
-
                         <div className="col-md-6">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="accountNumber">
                                 Account Number
                             </label>
-
                             <input
+                                id="accountNumber"
                                 type="text"
                                 name="accountNumber"
                                 className="form-control"
                                 value={form.accountNumber}
                                 onChange={handleChange}
-                                placeholder="Account number"
                             />
                         </div>
-
                         <div className="col-md-6">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="ifscCode">
                                 IFSC Code
                             </label>
-
                             <input
+                                id="ifscCode"
                                 type="text"
                                 name="ifscCode"
                                 className="form-control"
                                 value={form.ifscCode}
                                 onChange={handleChange}
-                                placeholder="IFSC code"
+                                maxLength={11}
                             />
                         </div>
-
                         <div className="col-md-6">
-                            <label className="form-label">
+                            <label className="form-label" htmlFor="upiId">
                                 UPI ID
                             </label>
-
                             <input
+                                id="upiId"
                                 type="text"
                                 name="upiId"
                                 className="form-control"
                                 value={form.upiId}
                                 onChange={handleChange}
-                                placeholder="example@upi"
+                                placeholder="shop@bank"
                             />
                         </div>
-
                     </div>
                 </div>
 
-                {/* Invoice Text */}
-
                 <div className="company-card">
-
                     <div className="company-card-header">
                         <div className="section-icon">
                             <i className="bi bi-file-text"></i>
                         </div>
-
                         <div>
-                            <h5>Invoice Text</h5>
-                            <span>
-                                Terms and footer information
-                            </span>
+                            <h5>Invoice text</h5>
+                            <span>Terms and footer</span>
                         </div>
                     </div>
 
                     <div className="row g-4">
-
                         <div className="col-12">
-                            <label className="form-label">
-                                Terms & Conditions
+                            <label
+                                className="form-label"
+                                htmlFor="termsAndConditions"
+                            >
+                                Terms &amp; conditions
                             </label>
-
                             <textarea
+                                id="termsAndConditions"
                                 name="termsAndConditions"
                                 className="form-control"
                                 rows={5}
                                 value={form.termsAndConditions}
                                 onChange={handleChange}
-                                maxLength={1000}
-                                placeholder="Enter invoice terms and conditions"
+                                maxLength={2000}
                             />
                         </div>
-
                         <div className="col-12">
-                            <label className="form-label">
-                                Footer Message
+                            <label className="form-label" htmlFor="footerMessage">
+                                Footer message
                             </label>
-
                             <textarea
+                                id="footerMessage"
                                 name="footerMessage"
                                 className="form-control"
                                 rows={3}
                                 value={form.footerMessage}
                                 onChange={handleChange}
-                                maxLength={500}
-                                placeholder="Thank you for your business!"
+                                maxLength={1000}
                             />
                         </div>
-
                     </div>
                 </div>
 
-                {/* Logo */}
-
                 <div className="company-card">
-
                     <div className="company-card-header">
                         <div className="section-icon">
                             <i className="bi bi-image"></i>
                         </div>
-
                         <div>
-                            <h5>Company Logo</h5>
-                            <span>
-                                Logo configuration
-                            </span>
+                            <h5>Company logo</h5>
+                            <span>PNG or JPEG, up to 2 MB</span>
                         </div>
                     </div>
 
-                    <div className="row g-4">
-
-                        <div className="col-md-8">
-                            <label className="form-label">
-                                Logo Path
-                            </label>
-
-                            <input
-                                type="text"
-                                name="logoPath"
-                                className="form-control"
-                                value={form.logoPath}
-                                onChange={handleChange}
-                                placeholder="Logo path / URL"
+                    <div className="logo-row">
+                        {hasLogo ? (
+                            <img
+                                className="logo-preview"
+                                src={`${API_URL}/Company/logo?v=${logoKey}`}
+                                alt="Company logo"
                             />
+                        ) : (
+                            <div className="logo-placeholder">No logo</div>
+                        )}
 
-                            <small className="text-muted">
-                                Actual image upload will be
-                                implemented with a dedicated
-                                backend upload API.
-                            </small>
+                        <div>
+                            <input
+                                ref={fileRef}
+                                type="file"
+                                accept="image/png,image/jpeg"
+                                className="d-none"
+                                onChange={(e) => void handleLogo(e)}
+                            />
+                            <div className="d-flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    className="btn btn-outline-primary"
+                                    disabled={uploading}
+                                    onClick={() => fileRef.current?.click()}
+                                >
+                                    {hasLogo ? "Replace logo" : "Upload logo"}
+                                </button>
+                                {hasLogo && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline-danger"
+                                        disabled={uploading}
+                                        onClick={() => void handleRemoveLogo()}
+                                    >
+                                        Remove
+                                    </button>
+                                )}
+                            </div>
+                            <p className="form-text mb-0 mt-2">
+                                Replacing the logo does not change invoices
+                                already issued. Those keep the file they were
+                                created with.
+                            </p>
                         </div>
-
                     </div>
                 </div>
 
-                {/* Status */}
-
                 <div className="company-card">
-
                     <div className="company-status-row">
-
                         <div>
-                            <h5>Company Status</h5>
-                            <p>
-                                Enable or disable this company
-                                configuration.
-                            </p>
+                            <h5>Company status</h5>
+                            <p>Inactive companies are hidden from new work.</p>
                         </div>
-
                         <div className="form-check form-switch">
                             <input
                                 className="form-check-input"
                                 type="checkbox"
                                 role="switch"
+                                id="isActive"
+                                name="isActive"
                                 checked={form.isActive}
-                                onChange={handleActiveChange}
+                                onChange={handleToggle}
                             />
-
-                            <label className="form-check-label">
-                                {form.isActive
-                                    ? "Active"
-                                    : "Inactive"}
+                            <label
+                                className="form-check-label"
+                                htmlFor="isActive"
+                            >
+                                {form.isActive ? "Active" : "Inactive"}
                             </label>
                         </div>
-
                     </div>
-
                 </div>
 
-                {/* Save */}
-
                 <div className="company-actions">
-
                     <button
                         type="submit"
                         className="btn btn-primary px-4"
@@ -720,24 +874,18 @@ function CompanySettingsPage() {
                     >
                         {saving ? (
                             <>
-                                <span
-                                    className="spinner-border spinner-border-sm me-2"
-                                ></span>
-
+                                <span className="spinner-border spinner-border-sm me-2"></span>
                                 Saving...
                             </>
                         ) : (
                             <>
                                 <i className="bi bi-check-lg me-2"></i>
-                                Save Company Settings
+                                Save company settings
                             </>
                         )}
                     </button>
-
                 </div>
-
             </form>
-
         </div>
     );
 }

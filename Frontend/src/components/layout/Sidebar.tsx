@@ -66,6 +66,7 @@ const menuItems: MenuItem[] = [
         title: "Settings",
         path: "/dashboard/settings",
         icon: "bi-gear",
+        adminOnly: true,
     },
 ];
 

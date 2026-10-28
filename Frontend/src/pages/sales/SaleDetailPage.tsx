@@ -2,14 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 
+import InvoiceView from "../../components/invoices/InvoiceView";
 import Modal from "../../components/common/Modal";
 import PaymentStatusBadge from "../../components/sales/PaymentStatusBadge";
 import RecordPaymentModal from "../../components/sales/RecordPaymentModal";
 import RecordRefundModal from "../../components/returns/RecordRefundModal";
 import ReturnItemsModal from "../../components/returns/ReturnItemsModal";
 
-import { API_URL } from "../../config/api";
 import { paymentMethodLabel } from "../../constants/payments";
+import { usePrintPage } from "../../hooks/usePrintPage";
 import {
     createSalesReturn,
     recordSalesReturnRefund,
@@ -20,19 +21,21 @@ import {
     voidPayment,
 } from "../../services/sales/salesService";
 import { getApiErrorMessage, getApiStatus } from "../../utils/apiError";
-import {
-    formatCurrency,
-    formatDate,
-    formatDateTime,
-} from "../../utils/format";
+import { formatCurrency, formatDate, formatDateTime } from "../../utils/format";
 import { isAdmin } from "../../utils/session";
 
+import type { InvoiceFormat } from "../../interfaces/company/company";
 import type { SaleDetail, SalePayment } from "../../interfaces/sale/sale";
 
 import "../../styles/data-pages.css";
 import "../../styles/sales.css";
+import "../../styles/invoice-print.css";
 
-const dash = <span className="text-muted">—</span>;
+const FORMATS: { value: InvoiceFormat; label: string }[] = [
+    { value: "A4", label: "A4 tax invoice" },
+    { value: "Compact", label: "Compact (A5)" },
+    { value: "Thermal", label: "Thermal receipt" },
+];
 
 function SaleDetailPage() {
     const { id } = useParams();
@@ -47,6 +50,9 @@ function SaleDetailPage() {
     } | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
 
+    const [format, setFormat] = useState<InvoiceFormat>("A4");
+    const [thermalWidth, setThermalWidth] = useState<58 | 80>(80);
+
     const [paying, setPaying] = useState(false);
     const [returning, setReturning] = useState(false);
     const [refunding, setRefunding] = useState(false);
@@ -54,9 +60,10 @@ function SaleDetailPage() {
     const [voidReason, setVoidReason] = useState("");
     const [voiding, setVoiding] = useState(false);
     const [downloading, setDownloading] = useState(false);
-    const [logoFailed, setLogoFailed] = useState(false);
 
     const admin = isAdmin();
+
+    usePrintPage(format, thermalWidth);
 
     useEffect(() => {
         if (!validId) {
@@ -74,6 +81,10 @@ function SaleDetailPage() {
 
                 if (!cancelled) {
                     setSale(data);
+                    setFormat(data.settings.defaultFormat);
+                    setThermalWidth(
+                        data.settings.thermalPaperWidthMm === 58 ? 58 : 80
+                    );
                 }
             } catch (err) {
                 if (!cancelled) {
@@ -108,7 +119,12 @@ function SaleDetailPage() {
 
         try {
             setDownloading(true);
-            await downloadInvoicePdf(sale.id, sale.invoiceNumber);
+            await downloadInvoicePdf(
+                sale.id,
+                sale.invoiceNumber,
+                format,
+                thermalWidth
+            );
         } catch (err) {
             toast.error(
                 getApiErrorMessage(err, "Unable to download the invoice.")
@@ -204,33 +220,17 @@ function SaleDetailPage() {
         );
     }
 
-    const company = sale.company;
-    const customer = sale.customer;
-    const isTaxInvoice = sale.taxCalculated && !!company.gstin;
-    const showTaxColumns = sale.taxCalculated;
     const canRecordPayment =
         !sale.paymentTracked ||
         (sale.outstanding > 0 && sale.paymentStatus !== "Settled");
-    const companyAddress = [
-        company.address,
-        [company.city, company.state, company.pincode]
-            .filter(Boolean)
-            .join(", "),
-    ].filter(Boolean);
-    const hasBank =
-        !!company.bankName ||
-        !!company.accountNumber ||
-        !!company.ifscCode ||
-        !!company.upiId;
     const activePayments = sale.payments.filter((p) => !p.isVoided);
     const canReturn = sale.items.some((item) => item.returnableQuantity > 0);
-    // Refunds are recorded against the most recent credit note; the server
-    // caps the amount at what is actually owed on the invoice.
     const latestReturn =
         sale.returns.length > 0
             ? sale.returns.reduce((a, b) => (a.id > b.id ? a : b))
             : null;
     const canRefund = sale.refundDue > 0 && latestReturn !== null;
+    const dash = <span className="text-muted">—</span>;
 
     return (
         <div className="data-page data-page-narrow">
@@ -240,7 +240,43 @@ function SaleDetailPage() {
                     Sales
                 </Link>
 
-                <div className="d-flex flex-wrap gap-2">
+                <div className="d-flex flex-wrap gap-2 align-items-center">
+                    <label className="visually-hidden" htmlFor="invoice-format">
+                        Invoice format
+                    </label>
+                    <select
+                        id="invoice-format"
+                        className="form-select"
+                        style={{ width: "auto" }}
+                        value={format}
+                        onChange={(e) =>
+                            setFormat(e.target.value as InvoiceFormat)
+                        }
+                    >
+                        {FORMATS.map((item) => (
+                            <option key={item.value} value={item.value}>
+                                {item.label}
+                            </option>
+                        ))}
+                    </select>
+
+                    {format === "Thermal" && (
+                        <select
+                            className="form-select"
+                            style={{ width: "auto" }}
+                            aria-label="Thermal paper width"
+                            value={thermalWidth}
+                            onChange={(e) =>
+                                setThermalWidth(
+                                    Number(e.target.value) as 58 | 80
+                                )
+                            }
+                        >
+                            <option value={80}>80 mm</option>
+                            <option value={58}>58 mm</option>
+                        </select>
+                    )}
+
                     {canRecordPayment && (
                         <button
                             type="button"
@@ -302,296 +338,19 @@ function SaleDetailPage() {
                 </div>
             </div>
 
-            <article className="invoice-sheet" aria-label="Invoice">
-                <header className="invoice-head">
-                    <div className="invoice-company">
-                        {company.hasLogo && !logoFailed && (
-                            <img
-                                className="invoice-logo"
-                                src={`${API_URL}/Company/logo`}
-                                alt={`${company.name} logo`}
-                                onError={() => setLogoFailed(true)}
-                            />
-                        )}
+            {format === "Thermal" && (
+                <p className="format-note no-print mb-3">
+                    Print opens the browser print dialog. Choose the matching
+                    paper size ({thermalWidth} mm) in the printer settings — the
+                    browser cannot pick the printer for you.
+                </p>
+            )}
 
-                        <div>
-                            <h3>{company.name}</h3>
-                            {companyAddress.map((line) => (
-                                <p key={line}>{line}</p>
-                            ))}
-                            {(company.phone || company.email) && (
-                                <p>
-                                    {[company.phone, company.email]
-                                        .filter(Boolean)
-                                        .join(" · ")}
-                                </p>
-                            )}
-                            {company.gstin && <p>GSTIN: {company.gstin}</p>}
-                            {company.pan && <p>PAN: {company.pan}</p>}
-                        </div>
-                    </div>
-
-                    <div className="invoice-meta">
-                        <div className="invoice-title">
-                            {isTaxInvoice ? "TAX INVOICE" : "INVOICE"}
-                        </div>
-                        <p>
-                            <strong>{sale.invoiceNumber}</strong>
-                        </p>
-                        <p>Date: {formatDate(sale.saleDate)}</p>
-                        {sale.paymentStatus !== "NotRecorded" && (
-                            <p className="mt-2">
-                                <PaymentStatusBadge
-                                    status={sale.paymentStatus}
-                                />
-                            </p>
-                        )}
-                    </div>
-                </header>
-
-                <section className="invoice-parties">
-                    <div>
-                        <div className="invoice-label">Bill to</div>
-                        <strong>{customer.name}</strong>
-                        <div>{customer.mobile}</div>
-                        {customer.email && <div>{customer.email}</div>}
-                        {customer.address && (
-                            <div style={{ whiteSpace: "pre-line" }}>
-                                {customer.address}
-                            </div>
-                        )}
-                        {customer.gstin && <div>GSTIN: {customer.gstin}</div>}
-                    </div>
-
-                    <div>
-                        <div className="invoice-label">Supply</div>
-                        {sale.taxCalculated ? (
-                            <>
-                                <div>
-                                    Place of supply:{" "}
-                                    {sale.placeOfSupplyState ?? dash}
-                                    {sale.placeOfSupplyStateCode &&
-                                        ` (${sale.placeOfSupplyStateCode})`}
-                                </div>
-                                <div>
-                                    {sale.isInterState
-                                        ? "Inter-state supply (IGST)"
-                                        : "Intra-state supply (CGST + SGST)"}
-                                </div>
-                            </>
-                        ) : (
-                            <div className="text-muted">
-                                Tax details were not recorded for this older
-                                invoice.
-                            </div>
-                        )}
-                    </div>
-                </section>
-
-                <div className="table-responsive">
-                    <table className="table invoice-table align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Item</th>
-                                {showTaxColumns && <th>HSN</th>}
-                                <th className="text-end">Qty</th>
-                                <th className="text-end">Rate</th>
-                                {showTaxColumns && (
-                                    <>
-                                        <th className="text-end">Taxable</th>
-                                        <th className="text-end">Tax</th>
-                                    </>
-                                )}
-                                <th className="text-end">Amount</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            {sale.items.map((item, index) => (
-                                <tr key={item.id}>
-                                    <td>{index + 1}</td>
-                                    <td>
-                                        {item.productName}
-                                        {item.sku && (
-                                            <div className="small text-muted">
-                                                {item.sku}
-                                            </div>
-                                        )}
-                                    </td>
-                                    {showTaxColumns && (
-                                        <td>{item.hsnCode ?? dash}</td>
-                                    )}
-                                    <td className="text-end">
-                                        {item.quantity}
-                                    </td>
-                                    <td className="text-end text-nowrap">
-                                        {formatCurrency(item.unitPrice)}
-                                    </td>
-                                    {showTaxColumns && (
-                                        <>
-                                            <td className="text-end text-nowrap">
-                                                {formatCurrency(item.total)}
-                                            </td>
-                                            <td className="text-end text-nowrap">
-                                                {formatCurrency(
-                                                    item.taxAmount ?? 0
-                                                )}
-                                                <div className="small text-muted">
-                                                    {item.taxRate ?? 0}%
-                                                </div>
-                                            </td>
-                                        </>
-                                    )}
-                                    <td className="text-end text-nowrap">
-                                        {formatCurrency(
-                                            item.lineTotal ?? item.total
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                <section className="invoice-summary">
-                    <div>
-                        <div className="invoice-label">Amount in words</div>
-                        <div>{sale.amountInWords}</div>
-
-                        {sale.remarks && (
-                            <>
-                                <div className="invoice-label mt-3">
-                                    Remarks
-                                </div>
-                                <div>{sale.remarks}</div>
-                            </>
-                        )}
-
-                        {hasBank && (
-                            <>
-                                <div className="invoice-label mt-3">
-                                    Bank details
-                                </div>
-                                {company.bankName && (
-                                    <div>Bank: {company.bankName}</div>
-                                )}
-                                {company.accountNumber && (
-                                    <div>A/c: {company.accountNumber}</div>
-                                )}
-                                {company.ifscCode && (
-                                    <div>IFSC: {company.ifscCode}</div>
-                                )}
-                                {company.upiId && (
-                                    <div>UPI: {company.upiId}</div>
-                                )}
-                            </>
-                        )}
-                    </div>
-
-                    <div className="invoice-totals">
-                        {sale.taxCalculated ? (
-                            <>
-                                <div className="row-line">
-                                    <span>Subtotal</span>
-                                    <span>{formatCurrency(sale.subtotal)}</span>
-                                </div>
-                                {sale.isInterState ? (
-                                    <div className="row-line">
-                                        <span>IGST</span>
-                                        <span>
-                                            {formatCurrency(sale.igstTotal)}
-                                        </span>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="row-line">
-                                            <span>CGST</span>
-                                            <span>
-                                                {formatCurrency(sale.cgstTotal)}
-                                            </span>
-                                        </div>
-                                        <div className="row-line">
-                                            <span>SGST</span>
-                                            <span>
-                                                {formatCurrency(sale.sgstTotal)}
-                                            </span>
-                                        </div>
-                                    </>
-                                )}
-                                {sale.roundOff !== 0 && (
-                                    <div className="row-line">
-                                        <span>Round off</span>
-                                        <span>
-                                            {sale.roundOff > 0 ? "+" : "−"}
-                                            {formatCurrency(
-                                                Math.abs(sale.roundOff)
-                                            )}
-                                        </span>
-                                    </div>
-                                )}
-                            </>
-                        ) : null}
-
-                        <div className="row-line grand">
-                            <span>Total</span>
-                            <span>{formatCurrency(sale.totalAmount)}</span>
-                        </div>
-
-                        {sale.paymentTracked && (
-                            <>
-                                <div className="row-line">
-                                    <span>Paid</span>
-                                    <span>
-                                        {formatCurrency(
-                                            sale.paidAmount -
-                                                sale.refundedAmount
-                                        )}
-                                    </span>
-                                </div>
-                                {sale.returnedAmount > 0 && (
-                                    <div className="row-line">
-                                        <span>Returned</span>
-                                        <span>
-                                            −{formatCurrency(sale.returnedAmount)}
-                                        </span>
-                                    </div>
-                                )}
-                                <div className="row-line fw-semibold">
-                                    <span>Balance due</span>
-                                    <span>
-                                        {formatCurrency(sale.outstanding)}
-                                    </span>
-                                </div>
-                                {sale.refundDue > 0 && (
-                                    <div className="row-line text-danger fw-semibold">
-                                        <span>Refund due</span>
-                                        <span>
-                                            {formatCurrency(sale.refundDue)}
-                                        </span>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                </section>
-
-                {(company.terms || company.footer) && (
-                    <footer className="invoice-footer">
-                        {company.terms && (
-                            <>
-                                <div className="invoice-label">
-                                    Terms &amp; conditions
-                                </div>
-                                <div className="mb-2">{company.terms}</div>
-                            </>
-                        )}
-                        {company.footer && (
-                            <div className="text-center">{company.footer}</div>
-                        )}
-                    </footer>
-                )}
-            </article>
+            <InvoiceView
+                sale={sale}
+                format={format}
+                thermalWidthMm={thermalWidth}
+            />
 
             <section className="data-card no-print mb-4">
                 <div className="p-3 border-bottom d-flex justify-content-between align-items-center">
@@ -614,6 +373,7 @@ function SaleDetailPage() {
                         <table className="table align-middle mb-0">
                             <thead>
                                 <tr>
+                                    <th>Receipt</th>
                                     <th>Date</th>
                                     <th>Method</th>
                                     <th>Reference</th>
@@ -632,15 +392,20 @@ function SaleDetailPage() {
                                                 : undefined
                                         }
                                     >
+                                        <td>
+                                            <Link
+                                                to={`/sales/${sale.id}/payments/${payment.id}/receipt`}
+                                                className="text-decoration-none"
+                                            >
+                                                {payment.receiptNumber ??
+                                                    "Receipt"}
+                                            </Link>
+                                        </td>
                                         <td className="text-nowrap">
-                                            {formatDateTime(
-                                                payment.paymentDate
-                                            )}
+                                            {formatDateTime(payment.paymentDate)}
                                         </td>
                                         <td>
-                                            {paymentMethodLabel(
-                                                payment.method
-                                            )}
+                                            {paymentMethodLabel(payment.method)}
                                         </td>
                                         <td>{payment.reference ?? dash}</td>
                                         <td
@@ -698,7 +463,7 @@ function SaleDetailPage() {
                 {sale.paymentTracked && activePayments.length > 0 && (
                     <div className="p-3 border-top small text-muted">
                         Only an administrator can void a payment. Voided
-                        payments stay in the history.
+                        payments stay in the history and are not counted.
                     </div>
                 )}
             </section>

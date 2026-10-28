@@ -8,6 +8,8 @@ interface PartyTaxFieldsProps {
     gstinProps: UseFormRegisterReturn;
     stateError?: string;
     gstinError?: string;
+    /** Saved code, shown if the lookup has not loaded that option yet. */
+    savedCode?: string | null;
 }
 
 /** State + GSTIN inputs shared by the customer and supplier forms. */
@@ -17,8 +19,13 @@ function PartyTaxFields({
     gstinProps,
     stateError,
     gstinError,
+    savedCode,
 }: PartyTaxFieldsProps) {
-    const states = useGstStates();
+    const { states, ready } = useGstStates();
+    const extra =
+        savedCode && !states.some((state) => state.code === savedCode)
+            ? savedCode
+            : null;
 
     return (
         <div className="row g-3 mb-3">
@@ -27,23 +34,31 @@ function PartyTaxFields({
                     State
                 </label>
 
-                {/* The options arrive after the form renders. Remounting the select once
-                    they are loaded lets the saved state be selected (a select cannot show
-                    a value whose option does not exist yet). */}
-                <select
-                    key={states.length > 0 ? "loaded" : "loading"}
-                    id={`${idPrefix}-state`}
-                    className={`form-select${stateError ? " is-invalid" : ""}`}
-                    aria-invalid={stateError ? "true" : "false"}
-                    {...stateProps}
-                >
-                    <option value="">Not specified</option>
-                    {states.map((state) => (
-                        <option key={state.code} value={state.code}>
-                            {state.name} ({state.code})
-                        </option>
-                    ))}
-                </select>
+                {!ready ? (
+                    <select
+                        id={`${idPrefix}-state`}
+                        className="form-select"
+                        disabled
+                        aria-busy="true"
+                    >
+                        <option>Loading states...</option>
+                    </select>
+                ) : (
+                    <select
+                        id={`${idPrefix}-state`}
+                        className={`form-select${stateError ? " is-invalid" : ""}`}
+                        aria-invalid={stateError ? "true" : "false"}
+                        {...stateProps}
+                    >
+                        <option value="">Not specified</option>
+                        {extra && <option value={extra}>{extra}</option>}
+                        {states.map((state) => (
+                            <option key={state.code} value={state.code}>
+                                {state.name} ({state.code})
+                            </option>
+                        ))}
+                    </select>
+                )}
 
                 {stateError && (
                     <div className="invalid-feedback" role="alert">

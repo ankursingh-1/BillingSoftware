@@ -8,6 +8,7 @@ function MainLayout() {
     return (
 
         <div
+            className="app-shell"
             style={{
                 display: "flex",
                 minHeight: "100vh",

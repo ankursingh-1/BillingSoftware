@@ -17,6 +17,7 @@ import SuppliersPage from "../pages/suppliers/SuppliersPage";
 import SalesPage from "../pages/sales/SalesPage";
 import NewSalePage from "../pages/sales/NewSalePage";
 import SaleDetailPage from "../pages/sales/SaleDetailPage";
+import PaymentReceiptPage from "../pages/sales/PaymentReceiptPage";
 import PurchasesPage from "../pages/purchases/PurchasesPage";
 import NewPurchasePage from "../pages/purchases/NewPurchasePage";
 import PurchaseDetailPage from "../pages/purchases/PurchaseDetailPage";
@@ -71,7 +72,11 @@ export default function AppRoutes() {
                     {/* Company Settings */}
                     <Route
                         path="/dashboard/settings"
-                        element={<CompanySettingsPage />}
+                        element={
+                            <AdminRoute>
+                                <CompanySettingsPage />
+                            </AdminRoute>
+                        }
                     />
 
                     {/* Products */}
@@ -118,6 +123,10 @@ export default function AppRoutes() {
                     <Route
                         path="/sales/:id"
                         element={<SaleDetailPage />}
+                    />
+                    <Route
+                        path="/sales/:id/payments/:paymentId/receipt"
+                        element={<PaymentReceiptPage />}
                     />
 
                     {/* Purchases (Admin) */}
