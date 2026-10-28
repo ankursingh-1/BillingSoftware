@@ -1,8 +1,11 @@
-﻿using Billing.Application.DTOs.Company;
+﻿using Microsoft.AspNetCore.Authorization;
+using Billing.Application.DTOs.Company;
 using Billing.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Billing.API.Controllers;
+
+[Authorize]
 
 [ApiController]
 [Route("api/[controller]")]

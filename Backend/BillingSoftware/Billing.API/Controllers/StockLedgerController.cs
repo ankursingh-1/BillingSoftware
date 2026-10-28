@@ -1,8 +1,10 @@
-﻿using Billing.Application.Interfaces;
+﻿using Microsoft.AspNetCore.Authorization;
+using Billing.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Billing.API.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class StockLedgerController : ControllerBase

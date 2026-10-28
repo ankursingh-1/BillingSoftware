@@ -1,9 +1,11 @@
-﻿using Billing.Application.DTOs.PurchaseReturn;
+﻿using Microsoft.AspNetCore.Authorization;
+using Billing.Application.DTOs.PurchaseReturn;
 using Billing.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Billing.API.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class PurchaseReturnController : ControllerBase

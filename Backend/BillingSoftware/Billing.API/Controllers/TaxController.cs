@@ -1,10 +1,12 @@
-﻿using Billing.Application.DTOs.Tax;
+﻿using Microsoft.AspNetCore.Authorization;
+using Billing.Application.DTOs.Tax;
 using Billing.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Billing.API.Controllers
 {
     [Route("api/[controller]")]
+    [Authorize]
     [ApiController]
     public class TaxController : ControllerBase
     {
