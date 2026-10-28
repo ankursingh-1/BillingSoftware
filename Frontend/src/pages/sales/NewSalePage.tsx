@@ -4,7 +4,10 @@ import { toast } from "react-toastify";
 
 import { PAYMENT_METHODS } from "../../constants/payments";
 import { useRemoteOptions } from "../../hooks/useRemoteOptions";
-import { searchCustomers } from "../../services/customers/customerService";
+import {
+    createCustomer,
+    searchCustomers,
+} from "../../services/customers/customerService";
 import { getProduct, searchProducts } from "../../services/products/productService";
 import { createSale } from "../../services/sales/salesService";
 import {
@@ -28,6 +31,9 @@ interface CartLine {
     product: Product;
     quantity: number;
 }
+
+const WALK_IN_MOBILE = "9000000000";
+const WALK_IN_NAME = "Walk-in Customer";
 
 const findCustomers = async (query: string): Promise<Customer[]> =>
     (
@@ -71,6 +77,7 @@ function NewSalePage() {
     const [submitting, setSubmitting] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
+    const [walkInBusy, setWalkInBusy] = useState(false);
 
     // Guards against a double click before React re-renders the disabled button.
     const submittingRef = useRef(false);
@@ -138,6 +145,58 @@ function NewSalePage() {
         !hasLineProblem &&
         !payError &&
         !submitting;
+
+    const selectWalkIn = async () => {
+        setWalkInBusy(true);
+        setFormError(null);
+
+        try {
+            const existing = await searchCustomers({
+                search: WALK_IN_MOBILE,
+                pageNumber: 1,
+                pageSize: 8,
+            });
+            let found = existing.data.find(
+                (row) => row.mobile === WALK_IN_MOBILE
+            );
+
+            if (!found) {
+                await createCustomer({
+                    name: WALK_IN_NAME,
+                    mobile: WALK_IN_MOBILE,
+                    email: null,
+                    address: null,
+                    stateCode: null,
+                    gstin: null,
+                });
+                const created = await searchCustomers({
+                    search: WALK_IN_MOBILE,
+                    pageNumber: 1,
+                    pageSize: 8,
+                });
+                found = created.data.find(
+                    (row) => row.mobile === WALK_IN_MOBILE
+                );
+            }
+
+            if (!found) {
+                toast.error(
+                    "Walk-in customer could not be created. Add one on the Customers page."
+                );
+                return;
+            }
+
+            setCustomer(found);
+            setCustomerQuery("");
+            setCustomerOpen(false);
+        } catch (err) {
+            toast.error(
+                getApiErrorMessage(err, "Unable to select the walk-in customer.")
+            );
+        } finally {
+            setWalkInBusy(false);
+        }
+    };
 
     // ---- Cart actions ----
     const addProduct = (product: Product) => {
@@ -387,7 +446,16 @@ function NewSalePage() {
                                         }}
                                         onFocus={() => setCustomerOpen(true)}
                                         onBlur={() => setCustomerOpen(false)}
+                                        disabled={submitting || walkInBusy}
                                     />
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline-secondary"
+                                        onClick={() => void selectWalkIn()}
+                                        disabled={submitting || walkInBusy}
+                                    >
+                                        {walkInBusy ? "…" : "Walk-in"}
+                                    </button>
                                 </div>
 
                                 {customerOpen && (

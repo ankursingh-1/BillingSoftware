@@ -1,6 +1,6 @@
 # Project status
 
-Last updated: 2026-10-28.
+Last updated: 2026-10-28 (demo catalogue, walk-in sale, payment confirmation, reset plan — **reset not executed**).
 
 Status values: **Complete and tested** · **Implemented, testing pending** · **In progress** · **Blocked** · **Not started**.
 
@@ -15,7 +15,7 @@ Estimation method: count of modules in the table whose backend **and** frontend 
 | Brands, units & tax | Brands, units & tax (Admin) | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Implemented, testing pending | Complete and tested | Writes are Admin; GET is signed-in (product forms). |
 | Excel product import/export | Products → Import / Export | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested (unit + API 17/17) | Implemented, testing pending | Import modal (template + policy) opened in the browser. File upload was not driven in the UI this pass; API script covers preview/confirm. |
 | Customers & suppliers | Customers, Suppliers | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Implemented, testing pending | Complete and tested | — |
-| Sales & payments | Sales | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Partial payment + receipt verified on Verify DB. |
+| Sales & payments | Sales | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Implemented, testing pending | New Sale has **Walk-in**. After payment: amount, remaining balance, status, Print receipt. Browser re-check of those two controls pending this pass. |
 | Invoices (A4 / compact / thermal 80 / 58) | Sale detail format picker | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested (PDF images) | Implemented, testing pending | HTML print dialog not clicked (browser cannot pick a printer). Thermal 80/58 is a width selector when format is Thermal. |
 | Payment receipts | Payment row → receipt | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | A5 and Thermal layouts opened. |
 | Company settings & logo | Settings (Admin) | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | GSTIN/state mismatch is a **warning that blocks save**; it does not auto-change tax identity. Verify company GSTIN `36…` matches Telangana. Set `Storage:Root` in production. |
@@ -25,7 +25,7 @@ Estimation method: count of modules in the table whose backend **and** frontend 
 | Expenses | Expenses (Admin) | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Implemented, testing pending | Complete and tested | Category is free text. No payment-method column (not invented). |
 | Reports | Reports (Admin) | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Implemented, testing pending | Complete and tested | Gross profit omitted when any sale-line CostPrice is missing (correct). Low / out of stock are filters on the Stock tab. Excel download button present; file save not asserted in the browser. |
 | Dashboard | Dashboard | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Implemented, testing pending | Complete and tested | Cards link to modules. Staff do not see purchase links. Gross profit shows Unavailable when cost is incomplete. |
-| Demo data | Settings → Seed demo records (Admin) | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Implemented, testing pending | Implemented, testing pending | Disabled unless `Demo:Enabled`. Button clicked on Verify with Demo off. **Not executed against live `BillingSoftwareDb`.** |
+| Demo data | Settings → Seed demo records (Admin) | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Complete and tested | Implemented, testing pending | Implemented, testing pending | Electronics catalogue + walk-in/paid/partial/unpaid + return. Disabled unless `Demo:Enabled`. **Reset of Verify not executed — awaiting approval.** Never seeded on `BillingSoftwareDb`. |
 
 **Count:** 10 of 16 modules are “Complete and tested” on backend + frontend + browser (auth, products/categories, catalog, customers/suppliers, sales/payments, payment receipts, company settings, inventory, expenses, dashboard). Reports browser-opened all tabs including incomplete profit. Excel UI file upload, HTML print dialog, a new purchase, and a new return were not fully driven this pass.
 
@@ -96,6 +96,8 @@ Recorded after the commands actually ran:
 - HTML print dialog was not opened.
 - Verify DB contains leftover SAMPLE / empty-named rows from earlier import tests.
 
+Operator guide: `Documentation/USER-GUIDE-HINDI.md`. Reset plan: `Documentation/DEMO-RESET-PLAN.md`.
+
 ## Next task
 
-Ask before applying migrations to `BillingSoftwareDb`. Set `Storage:Root` and keep `Demo:Enabled=false` in production.
+**You must approve** the `BillingSoftware_Verify` reset (`DEMO-RESET-PLAN.md`) before any deletes. Do not apply migrations to `BillingSoftwareDb` without a backup. Keep `Demo:Enabled=false` in production.

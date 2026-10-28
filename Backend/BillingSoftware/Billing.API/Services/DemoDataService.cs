@@ -1,8 +1,12 @@
 using Billing.API.Models;
+using Billing.Application.DTOs.Brand;
 using Billing.Application.DTOs.Category;
 using Billing.Application.DTOs.Expense;
 using Billing.Application.DTOs.Purchases;
+using Billing.Application.DTOs.Returns;
 using Billing.Application.DTOs.Sales;
+using Billing.Application.DTOs.Tax;
+using Billing.Application.DTOs.Unit;
 using Billing.Application.Interfaces;
 using Billing.Domain.Enums;
 using Billing.Persistence.Context;
@@ -12,14 +16,23 @@ using Microsoft.EntityFrameworkCore;
 namespace Billing.API.Services;
 
 /// <summary>
-/// Fills clearly labelled DEMO records. Idempotent: existing DEMO SKUs / mobiles
-/// are reused. Never touches records that are not labelled DEMO.
-/// Disabled unless Demo:Enabled is true (and never in Production unless
-/// Demo:AllowInProduction is also true).
+/// Fills clearly labelled DEMO records for a fictional electronics shop.
+/// Idempotent: existing DEMO SKUs / mobiles are reused. Never updates or
+/// deletes records that are not labelled DEMO. Disabled unless Demo:Enabled
+/// is true (and never in Production unless Demo:AllowInProduction is also true).
+/// Does not overwrite company tax identity unless Demo:UpdateCompany is true.
 /// </summary>
 public class DemoDataService
 {
     public const string Prefix = "DEMO";
+    public const string WalkInMobile = "9000000000";
+    public const string WalkInName = "Walk-in Customer";
+
+    /// <summary>Documented test GSTIN (Telangana prefix 36). Not a real registration.</summary>
+    public const string TestGstinTelangana = "36AAAAA0000A1Z5";
+
+    /// <summary>Documented test GSTIN (Maharashtra prefix 27). Not a real registration.</summary>
+    public const string TestGstinMaharashtra = "27AAAAA0000A1Z5";
 
     private readonly IHostEnvironment _environment;
     private readonly IConfiguration _configuration;
@@ -30,7 +43,11 @@ public class DemoDataService
     private readonly SupplierService _suppliers;
     private readonly PurchaseService _purchases;
     private readonly SaleService _sales;
+    private readonly SalesReturnService _salesReturns;
     private readonly IExpenseService _expenses;
+    private readonly IBrandService _brands;
+    private readonly IUnitService _units;
+    private readonly ITaxService _taxes;
 
     public DemoDataService(
         IHostEnvironment environment,
@@ -42,7 +59,11 @@ public class DemoDataService
         SupplierService suppliers,
         PurchaseService purchases,
         SaleService sales,
-        IExpenseService expenses)
+        SalesReturnService salesReturns,
+        IExpenseService expenses,
+        IBrandService brands,
+        IUnitService units,
+        ITaxService taxes)
     {
         _environment = environment;
         _configuration = configuration;
@@ -53,7 +74,11 @@ public class DemoDataService
         _suppliers = suppliers;
         _purchases = purchases;
         _sales = sales;
+        _salesReturns = salesReturns;
         _expenses = expenses;
+        _brands = brands;
+        _units = units;
+        _taxes = taxes;
     }
 
     public void EnsureAllowed()
@@ -72,48 +97,121 @@ public class DemoDataService
     {
         EnsureAllowed();
 
-        var taxId = await _context.Taxes.AsNoTracking()
-            .Where(t => !t.IsDeleted && t.IsActive)
-            .OrderBy(t => t.Percentage == 18 ? 0 : 1)
-            .Select(t => (int?)t.Id)
-            .FirstOrDefaultAsync();
+        var taxId = await EnsureTax();
+        var unitId = await EnsureUnit();
+        var samsung = await EnsureBrand("DEMO-Samsung");
+        var dell = await EnsureBrand("DEMO-Dell");
+        var tplink = await EnsureBrand("DEMO-TP-Link");
+        var kingston = await EnsureBrand("DEMO-Kingston");
+        var generic = await EnsureBrand("DEMO-Generic");
 
-        var category = await EnsureCategory();
-        var usb = await EnsureProduct("DEMO USB cable", "DEMO-USB-01", category, taxId, 80, 120, 40);
-        var hdmi = await EnsureProduct("DEMO HDMI cable", "DEMO-HDMI-01", category, taxId, 150, 220, 8);
-        var low = await EnsureProduct("DEMO Low-stock item", "DEMO-LOW-01", category, taxId, 20, 40, 2);
-        await EnsureProduct("DEMO Out of stock item", "DEMO-OUT-01", category, taxId, 10, 25, 0);
+        var mobiles = await EnsureCategory("DEMO - Mobiles");
+        var laptops = await EnsureCategory("DEMO - Laptops");
+        var accessories = await EnsureCategory("DEMO - Accessories");
+        var networking = await EnsureCategory("DEMO - Networking");
+        var storage = await EnsureCategory("DEMO - Storage");
+        var printers = await EnsureCategory("DEMO - Printers");
+
+        var phone = await EnsureProduct("Demo Android Smartphone", "DEMO-MOB-001", mobiles, samsung, unitId, taxId, 12000, 14999, 15, "8517");
+        var laptop = await EnsureProduct("Demo Business Laptop", "DEMO-LAP-001", laptops, dell, unitId, taxId, 42000, 52999, 6, "8471");
+        var charger = await EnsureProduct("USB-C Charger", "DEMO-ACC-001", accessories, generic, unitId, taxId, 250, 499, 40, "8504");
+        var cable = await EnsureProduct("USB Cable", "DEMO-ACC-002", accessories, generic, unitId, taxId, 80, 149, 50, "8544");
+        var mouse = await EnsureProduct("Wireless Mouse", "DEMO-ACC-003", accessories, generic, unitId, taxId, 400, 799, 25, "8471");
+        var keyboard = await EnsureProduct("Wireless Keyboard", "DEMO-ACC-004", accessories, generic, unitId, taxId, 700, 1299, 20, "8471");
+        var hdmi = await EnsureProduct("HDMI Cable", "DEMO-ACC-005", accessories, generic, unitId, taxId, 150, 299, 30, "8544");
+        var card = await EnsureProduct("128 GB Storage Card", "DEMO-STO-001", storage, kingston, unitId, taxId, 450, 799, 18, "8523");
+        var ssd = await EnsureProduct("External SSD", "DEMO-STO-002", storage, kingston, unitId, taxId, 3500, 4999, 8, "8471");
+        var router = await EnsureProduct("Wi-Fi Router", "DEMO-NET-001", networking, tplink, unitId, taxId, 1800, 2499, 10, "8517");
+        var printer = await EnsureProduct("Printer", "DEMO-PRT-001", printers, generic, unitId, taxId, 8000, 9999, 4, "8443");
+        await EnsureProduct("Laptop Bag", "DEMO-ACC-006", accessories, generic, unitId, taxId, 600, 999, 12, "4202");
+        await EnsureProduct("DEMO Low-stock adapter", "DEMO-LOW-001", accessories, generic, unitId, taxId, 200, 399, 2, "8544");
+        await EnsureProduct("DEMO Out of stock toner", "DEMO-OUT-001", printers, generic, unitId, taxId, 1500, 2200, 0, "8443");
 
         var supplierId = await EnsureSupplier();
-        var anita = await EnsureCustomer("DEMO - Anita Sharma", "7000000001", "36");
-        var rahul = await EnsureCustomer("DEMO - Rahul Verma", "7000000002", "27");
+        var walkIn = await EnsureCustomer(WalkInName, WalkInMobile, "36", null);
+        var north = await EnsureCustomer("DEMO North Retail", "9000000001", "36", TestGstinTelangana);
+        var west = await EnsureCustomer("DEMO West Retail", "9000000002", "27", TestGstinMaharashtra);
 
-        if (!await DemoPurchaseExists(usb))
+        if (!await DemoPurchaseExists(cable))
         {
             await _purchases.CreateAsync(new CreatePurchaseRequest
             {
                 SupplierId = supplierId,
-                PurchaseDate = DateTime.Today.AddDays(-3),
-                Remarks = "[DEMO] Opening purchase",
+                PurchaseDate = DateTime.Today.AddDays(-5),
+                SupplierInvoiceNumber = "DEMO-BILL-001",
+                Remarks = "[DEMO] Restock from wholesale",
                 ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000001"),
                 Items = new List<CreatePurchaseItemRequest>
                 {
-                    new() { ProductId = usb, Quantity = 10, PurchasePrice = 80 },
-                    new() { ProductId = hdmi, Quantity = 5, PurchasePrice = 150 }
+                    new() { ProductId = cable, Quantity = 20, PurchasePrice = 80 },
+                    new() { ProductId = charger, Quantity = 10, PurchasePrice = 250 },
+                    new() { ProductId = mouse, Quantity = 10, PurchasePrice = 400 },
+                    new() { ProductId = hdmi, Quantity = 8, PurchasePrice = 150 },
+                    new() { ProductId = router, Quantity = 4, PurchasePrice = 1800 }
                 }
             });
         }
 
-        if (!await DemoSaleExists(anita))
+        if (!await DemoSaleExists("aaaaaaaa-bbbb-cccc-dddd-000000000011"))
         {
             var created = await _sales.CreateAsync(new CreateSaleRequest
             {
-                CustomerId = anita,
-                Remarks = "[DEMO] Paid in full",
+                CustomerId = walkIn,
+                Remarks = "[DEMO] Walk-in paid in full",
                 ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000011"),
                 Items = new List<CreateSaleItemRequest>
                 {
-                    new() { ProductId = usb, Quantity = 2 }
+                    new() { ProductId = cable, Quantity = 2 },
+                    new() { ProductId = mouse, Quantity = 1 }
+                }
+            });
+
+            var detail = await _sales.GetByIdAsync(created.SaleId);
+            if (detail.Outstanding > 0)
+            {
+                await _sales.RecordPaymentAsync(created.SaleId, new RecordPaymentRequest
+                {
+                    Method = PaymentMethod.Cash,
+                    Amount = detail.Outstanding,
+                    Reference = "DEMO-CASH-WALKIN"
+                });
+            }
+
+            if (!await DemoReturnExists())
+            {
+                var line = detail.Items.FirstOrDefault(i => i.ProductId == cable && i.ReturnableQuantity > 0);
+                if (line != null)
+                {
+                    var unitValue = line.LineTotal is > 0
+                        ? decimal.Round(line.LineTotal.Value / line.Quantity, 2, MidpointRounding.AwayFromZero)
+                        : 0;
+
+                    await _salesReturns.CreateAsync(new CreateSalesReturnRequest
+                    {
+                        SaleId = created.SaleId,
+                        Reason = "[DEMO] One cable returned",
+                        RefundAmount = unitValue,
+                        RefundMethod = unitValue > 0 ? PaymentMethod.Cash : null,
+                        Items = new List<ReturnSaleItemRequest>
+                        {
+                            new() { SaleItemId = line.Id, Quantity = 1 }
+                        }
+                    });
+                }
+            }
+        }
+
+        if (!await DemoSaleExists("aaaaaaaa-bbbb-cccc-dddd-000000000012"))
+        {
+            var created = await _sales.CreateAsync(new CreateSaleRequest
+            {
+                CustomerId = north,
+                Remarks = "[DEMO] Paid in full (UPI)",
+                ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000012"),
+                Items = new List<CreateSaleItemRequest>
+                {
+                    new() { ProductId = phone, Quantity = 1 },
+                    new() { ProductId = charger, Quantity = 1 }
                 }
             });
 
@@ -124,33 +222,50 @@ public class DemoDataService
                 {
                     Method = PaymentMethod.Upi,
                     Amount = detail.Outstanding,
-                    Reference = "DEMO-UPI-1"
+                    Reference = "DEMO-UPI-NORTH"
                 });
             }
         }
 
-        if (!await DemoSaleExists(rahul))
+        if (!await DemoSaleExists("aaaaaaaa-bbbb-cccc-dddd-000000000013"))
         {
             var created = await _sales.CreateAsync(new CreateSaleRequest
             {
-                CustomerId = rahul,
+                CustomerId = west,
                 Remarks = "[DEMO] Partial payment",
-                ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000012"),
+                ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000013"),
                 Items = new List<CreateSaleItemRequest>
                 {
-                    new() { ProductId = hdmi, Quantity = 1 }
+                    new() { ProductId = laptop, Quantity = 1 }
                 }
             });
 
-            if (created.Outstanding > 50)
+            var detail = await _sales.GetByIdAsync(created.SaleId);
+            var partial = Math.Min(20000m, detail.Outstanding);
+            if (partial > 0 && detail.Outstanding > partial)
             {
                 await _sales.RecordPaymentAsync(created.SaleId, new RecordPaymentRequest
                 {
-                    Method = PaymentMethod.Cash,
-                    Amount = 50,
-                    Reference = "DEMO-CASH-1"
+                    Method = PaymentMethod.BankTransfer,
+                    Amount = partial,
+                    Reference = "DEMO-NEFT-WEST"
                 });
             }
+        }
+
+        if (!await DemoSaleExists("aaaaaaaa-bbbb-cccc-dddd-000000000014"))
+        {
+            await _sales.CreateAsync(new CreateSaleRequest
+            {
+                CustomerId = north,
+                Remarks = "[DEMO] Unpaid credit sale",
+                ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000014"),
+                Items = new List<CreateSaleItemRequest>
+                {
+                    new() { ProductId = router, Quantity = 1 },
+                    new() { ProductId = hdmi, Quantity = 1 }
+                }
+            });
         }
 
         if (!await _context.Expenses.AnyAsync(e => !e.IsDeleted && e.Title.StartsWith("DEMO ")))
@@ -159,8 +274,16 @@ public class DemoDataService
             {
                 Title = "DEMO shop rent",
                 Amount = 15000,
-                ExpenseDate = DateTime.Today.AddDays(-5),
+                ExpenseDate = DateTime.Today.AddDays(-8),
                 Category = "Rent",
+                Remarks = "[DEMO]"
+            });
+            await _expenses.CreateAsync(new CreateExpenseDto
+            {
+                Title = "DEMO electricity",
+                Amount = 2800,
+                ExpenseDate = DateTime.Today.AddDays(-3),
+                Category = "Utilities",
                 Remarks = "[DEMO]"
             });
         }
@@ -168,23 +291,83 @@ public class DemoDataService
         return new
         {
             Success = true,
-            Message = "Demo records are in place (labelled DEMO). Re-running this does not duplicate them.",
-            Products = new[] { "DEMO-USB-01", "DEMO-HDMI-01", "DEMO-LOW-01", "DEMO-OUT-01" },
-            Note = "Use a development copy of the database. Demo invoices stay in reports until you use a fresh copy."
+            Message = "Demo electronics catalogue and sample invoices are in place (labelled DEMO). Re-running this does not duplicate them.",
+            Products = new[]
+            {
+                "DEMO-MOB-001", "DEMO-LAP-001", "DEMO-ACC-001", "DEMO-ACC-002",
+                "DEMO-ACC-003", "DEMO-ACC-004", "DEMO-ACC-005", "DEMO-ACC-006",
+                "DEMO-STO-001", "DEMO-STO-002", "DEMO-NET-001", "DEMO-PRT-001",
+                "DEMO-LOW-001", "DEMO-OUT-001"
+            },
+            Note = "Use a development copy of the database. Test GSTINs 36AAAAA0000A1Z5 / 27AAAAA0000A1Z5 are fictional. Demo invoices stay in reports until you use a fresh copy or an approved reset."
         };
     }
 
-    private async Task<int> EnsureCategory()
+    private async Task<int> EnsureTax()
+    {
+        var existing = await _context.Taxes.AsNoTracking()
+            .Where(t => !t.IsDeleted && t.IsActive && t.Percentage == 18)
+            .OrderBy(t => t.Name.StartsWith("DEMO") ? 0 : 1)
+            .Select(t => t.Id)
+            .FirstOrDefaultAsync();
+        if (existing != 0) return existing;
+
+        var created = await _taxes.CreateAsync(new SaveTaxRequest
+        {
+            Name = "DEMO GST 18%",
+            Percentage = 18,
+            Description = "Demo tax rate",
+            IsActive = true
+        });
+        return created.Id;
+    }
+
+    private async Task<int> EnsureUnit()
+    {
+        var existing = await _context.Units.AsNoTracking()
+            .Where(u => !u.IsDeleted && u.IsActive)
+            .OrderBy(u => u.Name.Contains("Piece") || u.ShortName == "Pcs" ? 0 : 1)
+            .Select(u => u.Id)
+            .FirstOrDefaultAsync();
+        if (existing != 0) return existing;
+
+        var created = await _units.CreateAsync(new SaveUnitRequest
+        {
+            Name = "Pieces",
+            ShortName = "Pcs",
+            IsActive = true
+        });
+        return created.Id;
+    }
+
+    private async Task<int> EnsureBrand(string name)
+    {
+        var existing = await _context.Brands.AsNoTracking()
+            .Where(b => !b.IsDeleted && b.Name == name)
+            .Select(b => b.Id)
+            .FirstOrDefaultAsync();
+        if (existing != 0) return existing;
+
+        var created = await _brands.CreateAsync(new SaveBrandRequest
+        {
+            Name = name,
+            Description = "Demo brand",
+            IsActive = true
+        });
+        return created.Id;
+    }
+
+    private async Task<int> EnsureCategory(string name)
     {
         var existing = await _context.Categories.AsNoTracking()
-            .Where(c => !c.IsDeleted && c.Name == "DEMO - Cables")
+            .Where(c => !c.IsDeleted && c.Name == name)
             .Select(c => c.Id)
             .FirstOrDefaultAsync();
         if (existing != 0) return existing;
 
         var created = await _categories.CreateAsync(new SaveCategoryRequest
         {
-            Name = "DEMO - Cables",
+            Name = name,
             Description = "Demo category",
             IsActive = true
         });
@@ -192,8 +375,8 @@ public class DemoDataService
     }
 
     private async Task<int> EnsureProduct(
-        string name, string sku, int categoryId, int? taxId,
-        decimal cost, decimal price, int stock)
+        string name, string sku, int categoryId, int brandId, int unitId, int? taxId,
+        decimal cost, decimal price, int stock, string hsn)
     {
         var existing = await _context.Products.AsNoTracking()
             .Where(p => !p.IsDeleted && p.SKU == sku)
@@ -209,12 +392,14 @@ public class DemoDataService
             SellingPrice = price,
             Stock = stock,
             CategoryId = categoryId,
+            BrandId = brandId,
+            UnitId = unitId,
             TaxId = taxId,
-            HsnCode = "8517"
+            HsnCode = hsn
         });
     }
 
-    private async Task<int> EnsureCustomer(string name, string mobile, string state)
+    private async Task<int> EnsureCustomer(string name, string mobile, string state, string? gstin)
     {
         var existing = await _context.Customers.AsNoTracking()
             .Where(c => !c.IsDeleted && c.Mobile == mobile)
@@ -227,24 +412,27 @@ public class DemoDataService
             Name = name,
             Mobile = mobile,
             StateCode = state,
-            Address = "Demo address"
+            Gstin = gstin,
+            Address = "Demo address — fictional shop"
         });
     }
 
     private async Task<int> EnsureSupplier()
     {
         var existing = await _context.Suppliers.AsNoTracking()
-            .Where(s => !s.IsDeleted && s.Mobile == "7000000099")
+            .Where(s => !s.IsDeleted && s.Mobile == "9000000099")
             .Select(s => s.Id)
             .FirstOrDefaultAsync();
         if (existing != 0) return existing;
 
         return await _suppliers.CreateAsync(new SupplierDto
         {
-            Name = "DEMO contact",
-            CompanyName = "DEMO Wholesale",
-            Mobile = "7000000099",
-            StateCode = "36"
+            Name = "DEMO wholesale contact",
+            CompanyName = "DEMO Wholesale Supplies",
+            Mobile = "9000000099",
+            StateCode = "36",
+            Gstin = TestGstinTelangana,
+            Address = "Demo warehouse — fictional"
         });
     }
 
@@ -252,7 +440,11 @@ public class DemoDataService
         _context.PurchaseItems.AsNoTracking()
             .AnyAsync(i => i.ProductId == productId && i.Purchase.Remarks != null && i.Purchase.Remarks.Contains("[DEMO]"));
 
-    private Task<bool> DemoSaleExists(int customerId) =>
+    private Task<bool> DemoSaleExists(string clientRequestId) =>
         _context.Sales.AsNoTracking()
-            .AnyAsync(s => s.CustomerId == customerId && s.Remarks != null && s.Remarks.Contains("[DEMO]"));
+            .AnyAsync(s => s.ClientRequestId == Guid.Parse(clientRequestId));
+
+    private Task<bool> DemoReturnExists() =>
+        _context.SalesReturns.AsNoTracking()
+            .AnyAsync(r => r.Reason != null && r.Reason.Contains("[DEMO]"));
 }

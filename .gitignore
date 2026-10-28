@@ -29,3 +29,7 @@ appsettings.Production.json
 # Runtime file storage (logos etc.) - persistent data, never committed
 App_Data/
 Storage/
+
+# Local SQL backups (never commit)
+Backups/
+*.bak

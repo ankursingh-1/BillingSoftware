@@ -56,6 +56,21 @@ public class AuthorizationAttributeTests
     }
 
     [Fact]
+    public void Demo_seed_creates_labelled_electronics_skus_through_services()
+    {
+        var src = File.ReadAllText(Find("DemoDataService.cs"));
+        Assert.Contains("DEMO-MOB-001", src);
+        Assert.Contains("DEMO-LAP-001", src);
+        Assert.Contains("DEMO-ACC-002", src);
+        Assert.Contains("DEMO-OUT-001", src);
+        Assert.Contains("Walk-in Customer", src);
+        Assert.Contains("AdjustStockAsync", File.ReadAllText(Find("ProductService.cs")));
+        Assert.Contains("StockTransactionType.OpeningStock", File.ReadAllText(Find("ProductService.cs")));
+        Assert.Contains("[DEMO] One cable returned", src);
+        Assert.Contains("EnsureAllowed()", src);
+    }
+
+    [Fact]
     public void Import_service_writes_inside_a_transaction_and_uses_the_ledger()
     {
         var src = File.ReadAllText(Find("ProductImportService.cs"));

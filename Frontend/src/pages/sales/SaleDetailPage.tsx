@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import InvoiceView from "../../components/invoices/InvoiceView";
 import Modal from "../../components/common/Modal";
 import PaymentStatusBadge from "../../components/sales/PaymentStatusBadge";
+import PaymentRecordedModal from "../../components/sales/PaymentRecordedModal";
 import RecordPaymentModal from "../../components/sales/RecordPaymentModal";
 import RecordRefundModal from "../../components/returns/RecordRefundModal";
 import ReturnItemsModal from "../../components/returns/ReturnItemsModal";
@@ -54,6 +55,10 @@ function SaleDetailPage() {
     const [thermalWidth, setThermalWidth] = useState<58 | 80>(80);
 
     const [paying, setPaying] = useState(false);
+    const [paymentResult, setPaymentResult] = useState<{
+        sale: SaleDetail;
+        payment: SalePayment;
+    } | null>(null);
     const [returning, setReturning] = useState(false);
     const [refunding, setRefunding] = useState(false);
     const [voidTarget, setVoidTarget] = useState<SalePayment | null>(null);
@@ -584,7 +589,25 @@ function SaleDetailPage() {
                     onSaved={(updated) => {
                         setSale(updated);
                         setPaying(false);
+                        const latest = updated.payments
+                            .filter((row) => !row.isVoided)
+                            .reduce<SalePayment | null>(
+                                (best, row) =>
+                                    !best || row.id > best.id ? row : best,
+                                null
+                            );
+                        if (latest) {
+                            setPaymentResult({ sale: updated, payment: latest });
+                        }
                     }}
+                />
+            )}
+
+            {paymentResult && (
+                <PaymentRecordedModal
+                    sale={paymentResult.sale}
+                    payment={paymentResult.payment}
+                    onClose={() => setPaymentResult(null)}
                 />
             )}
 

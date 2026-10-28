@@ -21,19 +21,22 @@ The call is refused unless `Demo:Enabled` is true. It is safe to repeat. Existin
 
 ## What is created
 
+Fictional **Demo Electronics** catalogue. Test GSTINs `36AAAAA0000A1Z5` / `27AAAAA0000A1Z5` are **not** real registrations.
+
 | Record | What it shows |
 |---|---|
-| Category `DEMO - Cables` | Category filter |
-| `DEMO-USB-01` (stock) | Normal product |
-| `DEMO-HDMI-01` | Second product for purchases/sales |
-| `DEMO-LOW-01` | Low-stock badge |
-| `DEMO-OUT-01` | Out of stock |
-| Supplier `DEMO Wholesale` | Purchase supplier |
-| Customers `DEMO - Anita Sharma`, `DEMO - Rahul Verma` | Intra vs inter-state (36 vs 27) |
-| A DEMO purchase | Stock in via purchase |
-| Paid DEMO sale (Anita) | Full payment + receipt |
-| Partial DEMO sale (Rahul) | Outstanding balance |
-| Expense `DEMO shop rent` | Expenses and expense report |
+| Categories `DEMO - Mobiles / Laptops / Accessories / Networking / Storage / Printers` | Filters |
+| Brands `DEMO-Samsung`, `DEMO-Dell`, `DEMO-TP-Link`, `DEMO-Kingston`, `DEMO-Generic` | Product forms |
+| `DEMO-MOB-001` smartphone, `DEMO-LAP-001` laptop, accessories, SSD, router, printer, bag | Catalogue |
+| `DEMO-LOW-001` / `DEMO-OUT-001` | Low stock and out of stock |
+| Walk-in Customer `9000000000` | Counter sales (**Walk-in** on New Sale) |
+| `DEMO North Retail` (state 36) / `DEMO West Retail` (state 27) | Intra vs inter-state tax |
+| Supplier `DEMO Wholesale Supplies` | Purchase |
+| `[DEMO] Restock from wholesale` | Stock in via purchase + ledger |
+| Walk-in paid sale + one cable **return** | Full payment, receipt, partial return |
+| North paid (UPI) and unpaid credit sale | Paid vs Unpaid |
+| West laptop with ₹20,000 partial | Partial + outstanding |
+| `DEMO shop rent` / `DEMO electricity` | Expenses |
 
 ## Suggested walk-through
 

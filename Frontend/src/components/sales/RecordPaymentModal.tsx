@@ -118,7 +118,7 @@ function RecordPaymentModal({
                 onSubmit={handleSubmit(onSubmit)}
                 noValidate
             >
-                <div className="alert alert-light border py-2">
+                <div className="alert alert-light border py-2 small mb-3">
                     {isLegacy ? (
                         <>
                             Invoice total{" "}
@@ -127,10 +127,26 @@ function RecordPaymentModal({
                             invoice.
                         </>
                     ) : (
-                        <>
-                            Balance due{" "}
-                            <strong>{formatCurrency(sale.outstanding)}</strong>
-                        </>
+                        <dl className="row mb-0">
+                            <dt className="col-6">Invoice</dt>
+                            <dd className="col-6 text-end mb-1">
+                                {sale.invoiceNumber}
+                            </dd>
+                            <dt className="col-6">Invoice total</dt>
+                            <dd className="col-6 text-end mb-1">
+                                {formatCurrency(sale.totalAmount)}
+                            </dd>
+                            <dt className="col-6">Already paid</dt>
+                            <dd className="col-6 text-end mb-1">
+                                {formatCurrency(sale.paidAmount)}
+                            </dd>
+                            <dt className="col-6">Outstanding</dt>
+                            <dd className="col-6 text-end mb-0">
+                                <strong>
+                                    {formatCurrency(sale.outstanding)}
+                                </strong>
+                            </dd>
+                        </dl>
                     )}
                 </div>
 
