@@ -71,7 +71,7 @@ public class InvoicePdfService
     }
 
     private static void T(IContainer cell, string text, float size = 8, bool bold = false, bool right = false,
-        bool center = false, string? colour = null, bool wrapAnywhere = false)
+        bool center = false, string? colour = null)
     {
         var aligned = right ? cell.AlignRight() : center ? cell.AlignCenter() : cell;
         aligned.Text(t =>
@@ -79,7 +79,6 @@ public class InvoicePdfService
             var span = t.Span(text).FontSize(size);
             if (bold) span.Bold();
             if (colour != null) span.FontColor(colour);
-            if (wrapAnywhere) t.DefaultTextStyle(s => s.WrapAnywhere());
         });
     }
 
@@ -186,6 +185,9 @@ public class InvoicePdfService
                     });
 
                     content.Item().Element(e => A4Items(e, v));
+
+                    if (sale.Warranties.Count > 0)
+                        content.Item().Element(e => WarrantyBlock(e, sale.Warranties, 8));
 
                     content.Item().ShowEntire().Row(row =>
                     {
@@ -319,7 +321,6 @@ public class InvoicePdfService
                 {
                     c.Item().Text(t =>
                     {
-                        t.DefaultTextStyle(s => s.WrapAnywhere());
                         t.Span(item.ProductName).FontSize(8.5f).SemiBold();
                     });
 
@@ -581,7 +582,6 @@ public class InvoicePdfService
                             {
                                 c.Item().Text(t =>
                                 {
-                                    t.DefaultTextStyle(s => s.WrapAnywhere());
                                     t.Span(item.ProductName).FontSize(8.5f).SemiBold();
                                 });
 
@@ -671,6 +671,9 @@ public class InvoicePdfService
 
                     content.Item().Text(sale.AmountInWords).Italic().FontSize(7.5f).FontColor(Muted);
 
+                    if (sale.Warranties.Count > 0)
+                        content.Item().Element(e => WarrantyBlock(e, sale.Warranties, 7.5f));
+
                     if (v.BankLines.Count > 0)
                         content.Item().Text(string.Join("   ", v.BankLines)).FontSize(7.5f);
 
@@ -748,7 +751,6 @@ public class InvoicePdfService
                     {
                         c.Item().Text(t =>
                         {
-                            t.DefaultTextStyle(s => s.WrapAnywhere());
                             t.Span(item.ProductName).SemiBold();
                         });
 
@@ -786,6 +788,18 @@ public class InvoicePdfService
                     Pair(c, "TOTAL", Money(sale.TotalAmount), size + 3, bold: true);
                     Dash(c);
 
+                    foreach (var w in sale.Warranties)
+                    {
+                        c.Item().Text($"WRN {w.WarrantyNumber}  {w.ProductName}").FontSize(size - 0.5f);
+                        c.Item().Text(
+                            $"{w.Duration}  {w.StartDate:dd-MMM-yy} to {w.EndDate:dd-MMM-yy}" +
+                            (string.IsNullOrWhiteSpace(w.SerialNumber) ? "" : $"  SN {w.SerialNumber}"))
+                            .FontSize(size - 1);
+                    }
+
+                    if (sale.Warranties.Count > 0)
+                        Dash(c);
+
                     if (v.Tracked)
                     {
                         foreach (var g in v.Payments.GroupBy(p => p.Method))
@@ -809,6 +823,52 @@ public class InvoicePdfService
                     Dash(c);
                     c.Item().AlignCenter().Text(v.Footer ?? "Thank you. Visit again.").FontSize(size - 0.5f);
                 });
+            });
+        });
+    }
+
+    private static void WarrantyBlock(
+        IContainer container,
+        List<Billing.Application.DTOs.Warranty.WarrantyInvoiceLineDto> warranties,
+        float size)
+    {
+        container.Column(c =>
+        {
+            c.Item().Text("WARRANTY REGISTRATION").FontSize(size - 0.5f).Bold().FontColor(Muted);
+            c.Item().Text("Coverage follows this invoice's registered dates. Changing the product later does not change these dates.")
+                .FontSize(size - 1.5f).FontColor(Muted);
+
+            c.Item().Table(table =>
+            {
+                table.ColumnsDefinition(cols =>
+                {
+                    cols.RelativeColumn(2);
+                    cols.RelativeColumn(3);
+                    cols.RelativeColumn(2);
+                    cols.RelativeColumn(2);
+                    cols.RelativeColumn(2);
+                    cols.RelativeColumn(2);
+                });
+
+                table.Header(h =>
+                {
+                    T(h.Cell().GridCell(true), "WRN", size - 0.5f, true);
+                    T(h.Cell().GridCell(true), "Product", size - 0.5f, true);
+                    T(h.Cell().GridCell(true), "Serial", size - 0.5f, true);
+                    T(h.Cell().GridCell(true), "Duration", size - 0.5f, true);
+                    T(h.Cell().GridCell(true), "Start", size - 0.5f, true);
+                    T(h.Cell().GridCell(true), "End", size - 0.5f, true);
+                });
+
+                foreach (var w in warranties)
+                {
+                    T(table.Cell().GridCell(), w.WarrantyNumber, size - 0.5f);
+                    T(table.Cell().GridCell(), w.ProductName, size - 0.5f);
+                    T(table.Cell().GridCell(), w.SerialNumber ?? "-", size - 0.5f);
+                    T(table.Cell().GridCell(), w.Duration, size - 0.5f);
+                    T(table.Cell().GridCell(), $"{w.StartDate:dd-MMM-yyyy}", size - 0.5f);
+                    T(table.Cell().GridCell(), $"{w.EndDate:dd-MMM-yyyy}", size - 0.5f);
+                }
             });
         });
     }

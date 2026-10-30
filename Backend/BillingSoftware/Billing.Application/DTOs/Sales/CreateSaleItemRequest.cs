@@ -21,5 +21,28 @@ namespace Billing.Application.DTOs.Sales
         [Range(typeof(decimal), "0", "9999999999999999.99",
             ErrorMessage = "Price cannot be negative.")]
         public decimal? UnitPrice { get; set; }
+
+        /// <summary>
+        /// When true, register a warranty for this line. When null, the server
+        /// registers only if the product has a default warranty, the shop is not
+        /// Grocery, and the customer is not Walk-in.
+        /// </summary>
+        public bool? RegisterWarranty { get; set; }
+
+        [Range(1, 3650)]
+        public int? WarrantyDurationValue { get; set; }
+
+        /// <summary>Days, Months or Years. Overrides the product default for this sale only.</summary>
+        [StringLength(20)]
+        public string? WarrantyDurationUnit { get; set; }
+
+        public DateTime? WarrantyStartDate { get; set; }
+
+        [StringLength(500)]
+        public string? WarrantyNotes { get; set; }
+
+        /// <summary>One serial per unit when the product requires serials. Optional otherwise.</summary>
+        [MaxLength(100)]
+        public List<string>? SerialNumbers { get; set; }
     }
 }

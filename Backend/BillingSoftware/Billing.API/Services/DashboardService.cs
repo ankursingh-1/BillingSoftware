@@ -1,7 +1,11 @@
-﻿using Billing.Application.DTOs.Dashboard;
+﻿using Billing.Application.Accounting;
+using Billing.Application.DTOs.Dashboard;
 using Billing.Application.Inventory;
+using Billing.Application.Warranty;
+using Billing.Persistence;
 using Billing.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Billing.API.Services;
 
@@ -9,11 +13,19 @@ public class DashboardService
 {
     private readonly BillingDbContext _context;
     private readonly StockAlertPolicy _alerts;
+    private readonly GrossProfitService _grossProfit;
+    private readonly ILogger<DashboardService> _logger;
 
-    public DashboardService(BillingDbContext context, StockAlertPolicy alerts)
+    public DashboardService(
+        BillingDbContext context,
+        StockAlertPolicy alerts,
+        GrossProfitService grossProfit,
+        ILogger<DashboardService> logger)
     {
         _context = context;
         _alerts = alerts;
+        _grossProfit = grossProfit;
+        _logger = logger;
     }
     public async Task<List<RecentSaleDto>> GetRecentSalesAsync(int count = 10)
     {
@@ -79,9 +91,11 @@ public class DashboardService
             .AsNoTracking()
             .SumAsync(x => (decimal?)x.TotalAmount) ?? 0;
 
+        var todayEnd = today.AddDays(1);
+
         var todaySales = await _context.Sales
             .AsNoTracking()
-            .Where(x => x.SaleDate.Date == today)
+            .Where(x => x.SaleDate >= today && x.SaleDate < todayEnd)
             .SumAsync(x => (decimal?)x.TotalAmount) ?? 0;
 
         var monthlySales = await _context.Sales
@@ -95,7 +109,7 @@ public class DashboardService
 
         var todayPurchase = await _context.Purchases
             .AsNoTracking()
-            .Where(x => x.PurchaseDate.Date == today)
+            .Where(x => x.PurchaseDate >= today && x.PurchaseDate < todayEnd)
             .SumAsync(x => (decimal?)x.TotalAmount) ?? 0;
 
         var monthlyPurchase = await _context.Purchases
@@ -123,19 +137,10 @@ public class DashboardService
             .AsNoTracking()
             .CountAsync(x => !x.IsDeleted && x.Stock == 0);
 
-        var monthLines = await _context.SaleItems.AsNoTracking()
-            .Where(i => i.Sale.SaleDate >= monthStart)
-            .Select(i => new { i.CostPrice, i.Quantity, SaleTotal = i.Sale.TotalAmount, i.SaleId })
-            .ToListAsync();
+        var monthProfit = await _grossProfit.ForPeriodAsync(monthStart, monthStart.AddMonths(1));
 
-        var monthSaleTotals = await _context.Sales.AsNoTracking()
-            .Where(s => s.SaleDate >= monthStart)
-            .Select(s => s.TotalAmount)
-            .ToListAsync();
-        var monthMissingCost = monthLines.Any(l => !l.CostPrice.HasValue);
-        decimal? monthProfit = monthMissingCost
-            ? null
-            : monthSaleTotals.Sum() - monthLines.Sum(l => l.Quantity * l.CostPrice!.Value);
+        var (expiring, expiringAvailable) = await CountExpiringWarrantiesSafeAsync(today);
+        var outstanding = await SumOutstandingCollectionsAsync();
 
         return new DashboardSummaryDto
         {
@@ -147,17 +152,64 @@ public class DashboardService
             TodayPurchase = todayPurchase,
             MonthlyPurchase = monthlyPurchase,
 
-            GrossProfit = monthProfit,
-            GrossProfitComplete = !monthMissingCost,
+            GrossProfit = monthProfit.Summary.KnownGrossProfit,
+            GrossProfitComplete = monthProfit.Summary.CostComplete,
+            GrossProfitIncompleteInvoices = monthProfit.Summary.IncompleteInvoices,
+            GrossProfitLimitation = monthProfit.Summary.Limitation,
 
             TotalProducts = totalProducts,
             TotalCustomers = totalCustomers,
             TotalSuppliers = totalSuppliers,
 
             LowStockProducts = lowStockProducts,
-            OutOfStockProducts = outOfStockProducts
+            OutOfStockProducts = outOfStockProducts,
+            OutstandingCollections = outstanding,
+            ExpiringWarranties = expiring,
+            ExpiringWarrantiesAvailable = expiringAvailable
         };
     }
+
+    private async Task<(int Count, bool Available)> CountExpiringWarrantiesSafeAsync(DateTime today)
+    {
+        try
+        {
+            var (from, toExclusive) = WarrantyDates.DayWindow(
+                today,
+                today.AddDays(WarrantyDates.ExpiringSoonDays));
+
+            var count = await _context.Warranties
+                .AsNoTracking()
+                .CountAsync(w => !w.IsVoided && w.EndDate >= from && w.EndDate < toExclusive);
+
+            return (count, true);
+        }
+        catch (Exception ex) when (SqlServerErrors.IsMissingObject(ex))
+        {
+            _logger.LogWarning(
+                ex,
+                "Warranties are not on this database; dashboard totals still load without that metric.");
+            return (0, false);
+        }
+    }
+
+    private async Task<decimal> SumOutstandingCollectionsAsync()
+    {
+        var rows = await _context.Sales
+            .AsNoTracking()
+            .Where(s => s.PaymentTracked)
+            .Select(s => new
+            {
+                s.TotalAmount,
+                Paid = s.Payments.Where(p => !p.IsVoided).Sum(p => (decimal?)p.Amount) ?? 0,
+                Returned = _context.SalesReturns.Where(r => r.SaleId == s.Id).Sum(r => (decimal?)r.TotalAmount) ?? 0,
+                Refunded = _context.SalesReturns.Where(r => r.SaleId == s.Id).Sum(r => (decimal?)r.RefundAmount) ?? 0
+            })
+            .ToListAsync();
+
+        return rows.Sum(s =>
+            PaymentCalculator.Summarise(s.TotalAmount, s.Returned, s.Paid, s.Refunded, true).Outstanding);
+    }
+
     public async Task<List<TopProductDto>> GetTopSellingProductsAsync(int count = 10)
     {
         return await _context.SaleItems
@@ -185,14 +237,18 @@ public class DashboardService
 
         var sales = await _context.Sales
             .AsNoTracking()
-            .Where(x => x.SaleDate.Date >= startDate)
+            .Where(x => x.SaleDate >= startDate)
+            .Select(x => new { x.SaleDate, x.TotalAmount })
+            .ToListAsync();
+
+        var grouped = sales
             .GroupBy(x => x.SaleDate.Date)
             .Select(g => new
             {
                 Date = g.Key,
                 Amount = g.Sum(x => x.TotalAmount)
             })
-            .ToListAsync();
+            .ToList();
 
         var result = new List<ChartPointDto>();
 
@@ -200,7 +256,7 @@ public class DashboardService
         {
             var currentDate = startDate.AddDays(i);
 
-            var daySale = sales.FirstOrDefault(x => x.Date == currentDate);
+            var daySale = grouped.FirstOrDefault(x => x.Date == currentDate);
 
             result.Add(new ChartPointDto
             {
@@ -217,14 +273,18 @@ public class DashboardService
 
         var purchases = await _context.Purchases
             .AsNoTracking()
-            .Where(x => x.PurchaseDate.Date >= startDate)
+            .Where(x => x.PurchaseDate >= startDate)
+            .Select(x => new { x.PurchaseDate, x.TotalAmount })
+            .ToListAsync();
+
+        var grouped = purchases
             .GroupBy(x => x.PurchaseDate.Date)
             .Select(g => new
             {
                 Date = g.Key,
                 Amount = g.Sum(x => x.TotalAmount)
             })
-            .ToListAsync();
+            .ToList();
 
         var result = new List<ChartPointDto>();
 
@@ -232,7 +292,7 @@ public class DashboardService
         {
             var currentDate = startDate.AddDays(i);
 
-            var dayPurchase = purchases.FirstOrDefault(x => x.Date == currentDate);
+            var dayPurchase = grouped.FirstOrDefault(x => x.Date == currentDate);
 
             result.Add(new ChartPointDto
             {

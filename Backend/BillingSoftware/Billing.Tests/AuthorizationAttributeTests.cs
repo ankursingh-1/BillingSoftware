@@ -4,6 +4,7 @@ using Billing.Shared.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Billing.Tests;
 
@@ -35,6 +36,22 @@ public class AuthorizationAttributeTests
     }
 
     [Fact]
+    public void Health_endpoint_is_anonymous()
+    {
+        Assert.NotNull(typeof(HealthController).GetCustomAttribute<AllowAnonymousAttribute>());
+    }
+
+    [Fact]
+    public void Login_is_rate_limited()
+    {
+        var method = typeof(AuthController).GetMethod(nameof(AuthController.Login));
+        Assert.NotNull(method);
+        var limit = method!.GetCustomAttribute<EnableRateLimitingAttribute>();
+        Assert.NotNull(limit);
+        Assert.Equal("login", limit!.PolicyName);
+    }
+
+    [Fact]
     public void Change_password_requires_a_signed_in_user()
     {
         var method = typeof(AuthController).GetMethod(nameof(AuthController.ChangePassword));
@@ -59,15 +76,27 @@ public class AuthorizationAttributeTests
     public void Demo_seed_creates_labelled_electronics_skus_through_services()
     {
         var src = File.ReadAllText(Find("DemoDataService.cs"));
-        Assert.Contains("DEMO-MOB-001", src);
-        Assert.Contains("DEMO-LAP-001", src);
-        Assert.Contains("DEMO-ACC-002", src);
-        Assert.Contains("DEMO-OUT-001", src);
+        Assert.Contains("GRC-RICE-001", src);
+        Assert.Contains("SAM-A06-464", src);
+        Assert.Contains("SAM-CHARGER-001", src);
+        Assert.Contains("DEMO-BC-", src);
+        Assert.Contains("RegisterWarranty", src);
         Assert.Contains("Walk-in Customer", src);
         Assert.Contains("AdjustStockAsync", File.ReadAllText(Find("ProductService.cs")));
         Assert.Contains("StockTransactionType.OpeningStock", File.ReadAllText(Find("ProductService.cs")));
-        Assert.Contains("[DEMO] One cable returned", src);
+        Assert.Contains("[DEMO] One biscuit pack returned", src);
         Assert.Contains("EnsureAllowed()", src);
+        Assert.Contains("WarrantyReplacement", File.ReadAllText(Find("InventoryService.cs")));
+    }
+
+    [Fact]
+    public void Product_update_corrects_stock_through_the_ledger()
+    {
+        var src = File.ReadAllText(Find("ProductService.cs"));
+        Assert.Contains("StockTransactionType.Adjustment", src);
+        Assert.Contains("StockTransactionType.AdjustmentOut", src);
+        Assert.Contains("Product form stock correction", src);
+        Assert.DoesNotContain("Stock is intentionally NOT updated here", src);
     }
 
     [Fact]
@@ -78,7 +107,8 @@ public class AuthorizationAttributeTests
         Assert.Contains("RollbackAsync", src);
         Assert.Contains("AdjustStockAsync", src);
         Assert.Contains("StockTransactionType.OpeningStock", src);
-        Assert.Contains("Existing products are not overwritten", src);
+        Assert.Contains("StockTransactionType.Adjustment", src);
+        Assert.Contains("FileHash", src);
     }
 
     private static string Find(string fileName)

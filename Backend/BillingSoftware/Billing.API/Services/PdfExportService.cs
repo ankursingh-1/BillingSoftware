@@ -183,15 +183,17 @@ public class PdfExportService : IPdfExportService
                             columns.RelativeColumn();
                             columns.RelativeColumn();
                             columns.RelativeColumn();
+                            columns.RelativeColumn();
                         });
 
                         table.Header(header =>
                         {
                             header.Cell().Text("Invoice").Bold();
                             header.Cell().Text("Date").Bold();
-                            header.Cell().Text("Sale").Bold();
+                            header.Cell().Text("Net sales").Bold();
                             header.Cell().Text("Cost").Bold();
                             header.Cell().Text("Profit").Bold();
+                            header.Cell().Text("Cost data").Bold();
                         });
 
                         foreach (var item in report.Items)
@@ -199,21 +201,23 @@ public class PdfExportService : IPdfExportService
                             table.Cell().Text(item.InvoiceNumber);
                             table.Cell().Text(item.SaleDate.ToString("dd-MM-yyyy"));
                             table.Cell().Text(item.SaleAmount.ToString("0.00"));
-                            table.Cell().Text(item.CostOfGoodsSold?.ToString("0.00") ?? "incomplete");
-                            table.Cell().Text(item.Profit?.ToString("0.00") ?? "incomplete");
+                            table.Cell().Text(item.CostOfGoodsSold?.ToString("0.00") ?? "Cost unavailable");
+                            table.Cell().Text(item.Profit?.ToString("0.00") ?? "Cost unavailable");
+                            table.Cell().Text(item.CostStatus);
                         }
                     });
 
                 page.Footer()
                     .Column(column =>
                     {
-                        column.Item().AlignRight().Text($"Total Sales : {report.TotalSales:0.00}");
+                        column.Item().AlignRight().Text($"Net sales (ex-tax) : {report.TotalSales:0.00}");
+                        column.Item().AlignRight().Text($"Complete invoices : {report.CompleteInvoices}  Incomplete : {report.IncompleteInvoices}  Coverage : {report.CoveragePercent:0.##}%");
                         column.Item().AlignRight().Text(report.CostComplete
                             ? $"Cost of goods sold : {report.CostOfGoodsSold:0.00}"
-                            : "Cost of goods sold : incomplete");
+                            : $"Known cost of goods sold : {report.CostOfGoodsSold:0.00}");
                         column.Item().AlignRight().Text(report.GrossProfit.HasValue
-                            ? $"Gross Profit : {report.GrossProfit:0.00}"
-                            : "Gross profit : not shown (cost missing on some lines)");
+                            ? (report.CostComplete ? $"Gross profit : {report.GrossProfit:0.00}" : $"Known gross profit : {report.GrossProfit:0.00}")
+                            : "Gross profit : unavailable (no complete cost snapshots)");
                         if (!string.IsNullOrEmpty(report.Limitation))
                             column.Item().Text(report.Limitation).FontSize(9);
                     });

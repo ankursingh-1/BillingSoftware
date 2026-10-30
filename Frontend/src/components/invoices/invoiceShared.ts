@@ -52,7 +52,7 @@ export function paymentStamp(sale: SaleDetail): string | null {
     }
 
     if (sale.paymentStatus === "Partial") {
-        return "PARTLY PAID";
+        return "PARTIALLY PAID";
     }
 
     if (sale.paymentStatus === "Unpaid") {

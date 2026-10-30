@@ -1,4 +1,5 @@
 ﻿using Billing.API.Services;
+using Billing.Application.DTOs.Common;
 using Billing.Application.DTOs.Expense;
 using Billing.Application.DTOs.Reports;
 using Billing.Application.Interfaces;
@@ -37,7 +38,7 @@ public class ReportsController : ControllerBase
     [HttpPost("sales/excel")]
     public async Task<IActionResult> SalesExcel([FromBody] SalesReportRequest request)
     {
-        request.PageSize = 10_000;
+        PrepareExport(request);
         var result = await _reportService.GetSalesReportAsync(request);
         return File(_excel.ExportSalesReport(result), Xlsx, "sales-report.xlsx");
     }
@@ -45,7 +46,7 @@ public class ReportsController : ControllerBase
     [HttpPost("sales/pdf")]
     public async Task<IActionResult> SalesPdf([FromBody] SalesReportRequest request)
     {
-        request.PageSize = 10_000;
+        PrepareExport(request);
         var result = await _reportService.GetSalesReportAsync(request);
         return File(_pdf.ExportSalesReport(result), Pdf, "sales-report.pdf");
     }
@@ -57,7 +58,7 @@ public class ReportsController : ControllerBase
     [HttpPost("purchases/excel")]
     public async Task<IActionResult> PurchasesExcel([FromBody] PurchaseReportRequest request)
     {
-        request.PageSize = 10_000;
+        PrepareExport(request);
         var result = await _reportService.GetPurchaseReportAsync(request);
         return File(_excel.ExportPurchaseReport(result), Xlsx, "purchase-report.xlsx");
     }
@@ -69,7 +70,7 @@ public class ReportsController : ControllerBase
     [HttpPost("stock/excel")]
     public async Task<IActionResult> StockExcel([FromBody] StockReportRequest request)
     {
-        request.PageSize = 10_000;
+        PrepareExport(request);
         var result = await _reportService.GetStockReportAsync(request);
         return File(_excel.ExportStockReport(result), Xlsx, "stock-report.xlsx");
     }
@@ -99,7 +100,7 @@ public class ReportsController : ControllerBase
     [HttpPost("expenses/excel")]
     public async Task<IActionResult> ExpensesExcel([FromBody] ExpenseSearchRequest request)
     {
-        request.PageSize = 10_000;
+        PrepareExport(request);
         var result = await _reportService.GetExpenseReportAsync(request);
         return File(_excel.ExportExpenseReport(result), Xlsx, "expense-report.xlsx");
     }
@@ -111,7 +112,7 @@ public class ReportsController : ControllerBase
     [HttpPost("customers/excel")]
     public async Task<IActionResult> CustomersExcel([FromBody] PartyReportRequest request)
     {
-        request.PageSize = 10_000;
+        PrepareExport(request);
         var result = await _reportService.GetCustomerReportAsync(request);
         return File(_excel.ExportCustomerReport(result), Xlsx, "customer-report.xlsx");
     }
@@ -123,7 +124,7 @@ public class ReportsController : ControllerBase
     [HttpPost("suppliers/excel")]
     public async Task<IActionResult> SuppliersExcel([FromBody] PartyReportRequest request)
     {
-        request.PageSize = 10_000;
+        PrepareExport(request);
         var result = await _reportService.GetSupplierReportAsync(request);
         return File(_excel.ExportSupplierReport(result), Xlsx, "supplier-report.xlsx");
     }
@@ -135,8 +136,17 @@ public class ReportsController : ControllerBase
     [HttpPost("payments/excel")]
     public async Task<IActionResult> PaymentsExcel([FromBody] PaymentReportRequest request)
     {
-        request.PageSize = 10_000;
+        PrepareExport(request);
         var result = await _reportService.GetPaymentReportAsync(request);
         return File(_excel.ExportPaymentReport(result), Xlsx, "payment-report.xlsx");
+    }
+
+    /// <summary>
+    /// Exports the full filtered set. The on-screen page number must not skip rows.
+    /// </summary>
+    private static void PrepareExport(PaginationRequest request)
+    {
+        request.PageNumber = 1;
+        request.PageSize = 10_000;
     }
 }

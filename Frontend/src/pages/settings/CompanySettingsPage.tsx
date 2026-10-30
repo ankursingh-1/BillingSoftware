@@ -17,6 +17,7 @@ import { GSTIN_PATTERN, emptyToNull } from "../../utils/validation";
 import type {
     InvoiceFormat,
     SaveCompanyRequest,
+    ShopType,
 } from "../../interfaces/company/company";
 
 import "../../styles/company-settings.css";
@@ -52,6 +53,7 @@ interface FormState {
     showTerms: boolean;
     showFooter: boolean;
     isActive: boolean;
+    shopType: ShopType;
 }
 
 const emptyForm: FormState = {
@@ -81,6 +83,7 @@ const emptyForm: FormState = {
     showTerms: true,
     showFooter: true,
     isActive: true,
+    shopType: "GeneralRetail",
 };
 
 function toPayload(form: FormState): SaveCompanyRequest {
@@ -112,6 +115,7 @@ function toPayload(form: FormState): SaveCompanyRequest {
         showTerms: form.showTerms,
         showFooter: form.showFooter,
         isActive: form.isActive,
+        shopType: form.shopType,
     };
 }
 
@@ -162,6 +166,7 @@ function CompanySettingsPage() {
                     showTerms: company.showTerms,
                     showFooter: company.showFooter,
                     isActive: company.isActive,
+                    shopType: company.shopType || "GeneralRetail",
                 });
                 setHasLogo(company.hasLogo);
             }
@@ -568,6 +573,44 @@ function CompanySettingsPage() {
                                 onChange={handleChange}
                                 maxLength={10}
                             />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="company-card">
+                    <div className="company-card-header">
+                        <div className="section-icon">
+                            <i className="bi bi-shop"></i>
+                        </div>
+                        <div>
+                            <h5>Shop type</h5>
+                            <span>
+                                One application. Grocery prefers Walk-in and
+                                skips warranty prompts. Electronics prompts for
+                                warranty on products that have a default.
+                            </span>
+                        </div>
+                    </div>
+                    <div className="row g-4">
+                        <div className="col-md-6">
+                            <label className="form-label" htmlFor="shopType">
+                                Counter workflow
+                            </label>
+                            <select
+                                id="shopType"
+                                name="shopType"
+                                className="form-select"
+                                value={form.shopType}
+                                onChange={handleChange}
+                            >
+                                <option value="GeneralRetail">
+                                    General retail
+                                </option>
+                                <option value="Electronics">Electronics</option>
+                                <option value="Grocery">
+                                    Grocery / supermarket
+                                </option>
+                            </select>
                         </div>
                     </div>
                 </div>

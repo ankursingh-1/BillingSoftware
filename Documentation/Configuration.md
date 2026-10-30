@@ -17,6 +17,7 @@ messages name the missing setting but never print secret values.
 | `ConnectionStrings:DefaultConnection` | `ConnectionStrings__DefaultConnection` | SQL Server connection string |
 | `JwtSettings:Key` | `JwtSettings__Key` | JWT signing key, **minimum 32 bytes**; use 64 random bytes (base64) |
 | `JwtSettings:Issuer` / `Audience` / `ExpiryMinutes` | `JwtSettings__Issuer` ... | Non-secret, defaults in `appsettings.json` |
+| `Cors:Origins` | `Cors__Origins__0`, `Cors__Origins__1`, … | Allowed frontend origins. Development defaults to `http://localhost:5173` and `http://localhost:5177`. **Production refuses to start if this list is empty.** |
 
 ## Local development (User Secrets)
 
@@ -71,11 +72,19 @@ exposed as environment variables):
 ASPNETCORE_ENVIRONMENT=Production
 ConnectionStrings__DefaultConnection=<production connection string>
 JwtSettings__Key=<unique random key, different from development>
+Cors__Origins__0=https://your-frontend-host
+Storage__Root=<persistent backed-up folder>
 ```
 
 - Use a **different** JWT key in each environment.
 - Prefer a SQL login with least privilege over `sa`; never commit its password.
 - Changing `JwtSettings__Key` invalidates all issued tokens (everyone must log in again).
+- Access tokens last `JwtSettings:ExpiryMinutes` (default 60) with a 30-second clock skew. There is **no refresh-token** flow. Do not add one without a new table and an explicit approval; login must keep returning the same JWT.
+- The browser stores that JWT in `localStorage` under the key `token`. Any script that can run on the page (XSS) can read it. The API still rejects a missing, expired, or bad token. The UI only hides pages; it is not the security boundary.
+- Changing the password does **not** revoke tokens that were already issued. They remain valid until `exp`. Rotating `JwtSettings:Key` does revoke them.
+- `ProtectedRoute` and the login page drop a token whose `exp` is missing or in the past, then show the login form. A request that returns 401 also clears the token.
+- `POST /api/Auth/login` is limited to **10 attempts per IP per minute** (HTTP 429).
+- JWT metadata requires HTTPS outside Development (`RequireHttpsMetadata`).
 
 ## Rotating the JWT key
 

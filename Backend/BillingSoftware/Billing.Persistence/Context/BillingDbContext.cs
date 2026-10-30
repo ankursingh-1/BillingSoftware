@@ -39,6 +39,11 @@ namespace Billing.Persistence.Context
         public DbSet<PurchaseReturn> PurchaseReturns => Set<PurchaseReturn>();
         public DbSet<PurchaseReturnItem> PurchaseReturnItems => Set<PurchaseReturnItem>();
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+        public DbSet<Warranty> Warranties => Set<Warranty>();
+        public DbSet<WarrantyClaim> WarrantyClaims => Set<WarrantyClaim>();
+        public DbSet<WarrantyClaimEvent> WarrantyClaimEvents => Set<WarrantyClaimEvent>();
+        public DbSet<ProductImportBatch> ProductImportBatches => Set<ProductImportBatch>();
+        public DbSet<ProductImportReceipt> ProductImportReceipts => Set<ProductImportReceipt>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

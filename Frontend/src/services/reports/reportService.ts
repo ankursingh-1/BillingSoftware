@@ -62,17 +62,22 @@ export interface ProfitReport {
     costOfGoodsSold: number;
     grossProfit: number | null;
     profitPercentage: number | null;
+    completeInvoices: number;
+    incompleteInvoices: number;
+    coveragePercent: number;
     linesWithCost: number;
     linesMissingCost: number;
     costComplete: boolean;
     limitation: string | null;
     items: {
+        saleId: number;
         invoiceNumber: string;
         saleDate: string;
         saleAmount: number;
         costOfGoodsSold: number | null;
         profit: number | null;
         costComplete: boolean;
+        costStatus: string;
     }[];
 }
 
@@ -117,6 +122,10 @@ export interface PaymentReportRow {
 
 interface PagedMoney<T> {
     items: T[];
+    totalRecords?: number;
+    totalPages?: number;
+    pageNumber?: number;
+    pageSize?: number;
     grandTotal?: number;
     totalStockValue?: number;
     totalBilled?: number;
@@ -159,9 +168,28 @@ export const downloadReportExcel = async (
     kind: ReportKind,
     query: ReportQuery
 ): Promise<void> => {
-    const response = await apiClient.post<Blob>(`/Reports/${kind}/excel`, query, {
-        responseType: "blob",
-    });
+    const response = await apiClient.post<Blob>(
+        `/Reports/${kind}/excel`,
+        { ...query, pageNumber: 1, pageSize: 10_000 },
+        {
+            responseType: "blob",
+        }
+    );
 
     saveBlob(response.data, `${kind}-report.xlsx`);
+};
+
+export const downloadReportPdf = async (
+    kind: "sales" | "profit",
+    query: ReportQuery
+): Promise<void> => {
+    const response = await apiClient.post<Blob>(
+        `/Reports/${kind}/pdf`,
+        { ...query, pageNumber: 1, pageSize: 10_000 },
+        {
+            responseType: "blob",
+        }
+    );
+
+    saveBlob(response.data, `${kind}-report.pdf`);
 };

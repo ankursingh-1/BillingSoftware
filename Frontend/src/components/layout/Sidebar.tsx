@@ -1,4 +1,5 @@
-import { NavLink } from "react-router-dom";
+import { useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 
 import { useLayout } from "../../hooks/useLayout";
 import { logout } from "../../services/auth/authService";
@@ -56,6 +57,11 @@ const menuItems: MenuItem[] = [
         icon: "bi-arrow-return-left",
     },
     {
+        title: "Warranties",
+        path: "/warranties",
+        icon: "bi-shield-check",
+    },
+    {
         title: "Customers",
         path: "/customers",
         icon: "bi-people",
@@ -87,8 +93,23 @@ const menuItems: MenuItem[] = [
 
 function Sidebar() {
     const admin = isAdmin();
+    const location = useLocation();
     const { navOpen, closeNav } = useLayout();
     const visibleItems = menuItems.filter((item) => admin || !item.adminOnly);
+
+    useEffect(() => {
+        const menu = document.querySelector<HTMLElement>(".sidebar-menu");
+        const active = menu?.querySelector<HTMLElement>(".active-menu");
+        if (!menu || !active) {
+            return;
+        }
+
+        const menuBox = menu.getBoundingClientRect();
+        const itemBox = active.getBoundingClientRect();
+        if (itemBox.top < menuBox.top || itemBox.bottom > menuBox.bottom) {
+            active.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
+    }, [location.pathname, navOpen]);
 
     return (
         <aside className={`sidebar${navOpen ? " is-open" : ""}`}>

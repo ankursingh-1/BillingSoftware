@@ -2,7 +2,7 @@ import type { PaymentStatus } from "../../interfaces/sale/sale";
 
 const BADGES: Record<PaymentStatus, { label: string; className: string }> = {
     Paid: { label: "Paid", className: "text-bg-success" },
-    Partial: { label: "Partial", className: "text-bg-warning" },
+    Partial: { label: "Partially Paid", className: "text-bg-warning" },
     Unpaid: { label: "Unpaid", className: "text-bg-danger" },
     Settled: { label: "Settled", className: "text-bg-info" },
     NotRecorded: {

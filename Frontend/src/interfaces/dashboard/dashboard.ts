@@ -9,6 +9,8 @@ export interface DashboardSummary {
 
     grossProfit: number | null;
     grossProfitComplete: boolean;
+    grossProfitIncompleteInvoices?: number;
+    grossProfitLimitation?: string | null;
 
     totalProducts: number;
     totalCustomers: number;
@@ -16,6 +18,10 @@ export interface DashboardSummary {
 
     lowStockProducts: number;
     outOfStockProducts: number;
+    outstandingCollections?: number;
+    expiringWarranties?: number;
+    /** False when this API database has no Warranties table. */
+    expiringWarrantiesAvailable?: boolean;
 }
 
 export interface RecentSale {

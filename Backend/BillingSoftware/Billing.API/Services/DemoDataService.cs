@@ -5,6 +5,8 @@ using Billing.Application.DTOs.Expense;
 using Billing.Application.DTOs.Purchases;
 using Billing.Application.DTOs.Returns;
 using Billing.Application.DTOs.Sales;
+using Billing.Application.DTOs.Warranty;
+using Billing.Application.Warranty;
 using Billing.Application.DTOs.Tax;
 using Billing.Application.DTOs.Unit;
 using Billing.Application.Interfaces;
@@ -16,11 +18,11 @@ using Microsoft.EntityFrameworkCore;
 namespace Billing.API.Services;
 
 /// <summary>
-/// Fills clearly labelled DEMO records for a fictional electronics shop.
-/// Idempotent: existing DEMO SKUs / mobiles are reused. Never updates or
-/// deletes records that are not labelled DEMO. Disabled unless Demo:Enabled
-/// is true (and never in Production unless Demo:AllowInProduction is also true).
-/// Does not overwrite company tax identity unless Demo:UpdateCompany is true.
+/// Fills sample grocery + Samsung catalogue for a fictional demo shop.
+/// Prices, barcodes and invoices are labelled demo/sample — not real market
+/// data or manufacturer EANs. Idempotent: existing SKUs / mobiles are reused.
+/// Disabled unless Demo:Enabled is true (and never in Production unless
+/// Demo:AllowInProduction is also true).
 /// </summary>
 public class DemoDataService
 {
@@ -48,6 +50,7 @@ public class DemoDataService
     private readonly IBrandService _brands;
     private readonly IUnitService _units;
     private readonly ITaxService _taxes;
+    private readonly IWarrantyService _warranties;
 
     public DemoDataService(
         IHostEnvironment environment,
@@ -63,7 +66,8 @@ public class DemoDataService
         IExpenseService expenses,
         IBrandService brands,
         IUnitService units,
-        ITaxService taxes)
+        ITaxService taxes,
+        IWarrantyService warranties)
     {
         _environment = environment;
         _configuration = configuration;
@@ -79,6 +83,7 @@ public class DemoDataService
         _brands = brands;
         _units = units;
         _taxes = taxes;
+        _warranties = warranties;
     }
 
     public void EnsureAllowed()
@@ -93,76 +98,82 @@ public class DemoDataService
             throw new BusinessException("Demo data cannot be seeded in Production.");
     }
 
+    public static string DemoBarcode(string sku) => $"DEMO-BC-{sku}";
+
     public async Task<object> SeedAsync()
     {
         EnsureAllowed();
 
-        var taxId = await EnsureTax();
-        var unitId = await EnsureUnit();
-        var samsung = await EnsureBrand("DEMO-Samsung");
-        var dell = await EnsureBrand("DEMO-Dell");
-        var tplink = await EnsureBrand("DEMO-TP-Link");
-        var kingston = await EnsureBrand("DEMO-Kingston");
-        var generic = await EnsureBrand("DEMO-Generic");
+        var gst5 = await EnsureTax(5m, "GST 5%");
+        var gst18 = await EnsureTax(18m, "GST 18%");
 
-        var mobiles = await EnsureCategory("DEMO - Mobiles");
-        var laptops = await EnsureCategory("DEMO - Laptops");
-        var accessories = await EnsureCategory("DEMO - Accessories");
-        var networking = await EnsureCategory("DEMO - Networking");
-        var storage = await EnsureCategory("DEMO - Storage");
-        var printers = await EnsureCategory("DEMO - Printers");
+        var piece = await EnsureUnit("Piece", "Pcs");
+        var packet = await EnsureUnit("Packet", "Pkt");
+        await EnsureUnit("Kilogram", "Kg");
+        var litre = await EnsureUnit("Litre", "L");
 
-        var phone = await EnsureProduct("Demo Android Smartphone", "DEMO-MOB-001", mobiles, samsung, unitId, taxId, 12000, 14999, 15, "8517");
-        var laptop = await EnsureProduct("Demo Business Laptop", "DEMO-LAP-001", laptops, dell, unitId, taxId, 42000, 52999, 6, "8471");
-        var charger = await EnsureProduct("USB-C Charger", "DEMO-ACC-001", accessories, generic, unitId, taxId, 250, 499, 40, "8504");
-        var cable = await EnsureProduct("USB Cable", "DEMO-ACC-002", accessories, generic, unitId, taxId, 80, 149, 50, "8544");
-        var mouse = await EnsureProduct("Wireless Mouse", "DEMO-ACC-003", accessories, generic, unitId, taxId, 400, 799, 25, "8471");
-        var keyboard = await EnsureProduct("Wireless Keyboard", "DEMO-ACC-004", accessories, generic, unitId, taxId, 700, 1299, 20, "8471");
-        var hdmi = await EnsureProduct("HDMI Cable", "DEMO-ACC-005", accessories, generic, unitId, taxId, 150, 299, 30, "8544");
-        var card = await EnsureProduct("128 GB Storage Card", "DEMO-STO-001", storage, kingston, unitId, taxId, 450, 799, 18, "8523");
-        var ssd = await EnsureProduct("External SSD", "DEMO-STO-002", storage, kingston, unitId, taxId, 3500, 4999, 8, "8471");
-        var router = await EnsureProduct("Wi-Fi Router", "DEMO-NET-001", networking, tplink, unitId, taxId, 1800, 2499, 10, "8517");
-        var printer = await EnsureProduct("Printer", "DEMO-PRT-001", printers, generic, unitId, taxId, 8000, 9999, 4, "8443");
-        await EnsureProduct("Laptop Bag", "DEMO-ACC-006", accessories, generic, unitId, taxId, 600, 999, 12, "4202");
-        await EnsureProduct("DEMO Low-stock adapter", "DEMO-LOW-001", accessories, generic, unitId, taxId, 200, 399, 2, "8544");
-        await EnsureProduct("DEMO Out of stock toner", "DEMO-OUT-001", printers, generic, unitId, taxId, 1500, 2200, 0, "8443");
+        var samsung = await EnsureBrand("Samsung");
+        var aashirvaad = await EnsureBrand("Aashirvaad");
+        var tata = await EnsureBrand("Tata");
+        var fortune = await EnsureBrand("Fortune");
+        var parle = await EnsureBrand("Parle");
+        var britannia = await EnsureBrand("Britannia");
+        var amul = await EnsureBrand("Amul");
 
-        var supplierId = await EnsureSupplier();
+        var grocery = await EnsureCategory("Grocery");
+        var packaged = await EnsureCategory("Packaged Food");
+        var beverages = await EnsureCategory("Beverages");
+        var ricePulses = await EnsureCategory("Rice & Pulses");
+        var mobiles = await EnsureCategory("Mobile Phones");
+        var accessories = await EnsureCategory("Mobile Accessories");
+
+        var rice = await EnsureProduct("Rice 1 kg (demo)", "GRC-RICE-001", ricePulses, tata, packet, gst5, 55, 70, 100, "1006", DemoBarcode("GRC-RICE-001"));
+        await EnsureProduct("Toor Dal 1 kg (demo)", "GRC-DAL-001", ricePulses, tata, packet, gst5, 100, 125, 60, "0713", DemoBarcode("GRC-DAL-001"));
+        await EnsureProduct("Sugar 1 kg (demo)", "GRC-SUGAR-001", grocery, tata, packet, gst5, 38, 45, 80, "1701", DemoBarcode("GRC-SUGAR-001"));
+        await EnsureProduct("Atta 5 kg (demo)", "GRC-ATTA-005", grocery, aashirvaad, packet, gst5, 180, 220, 30, "1101", DemoBarcode("GRC-ATTA-005"));
+        await EnsureProduct("Sunflower Oil 1 L (demo)", "GRC-OIL-001", grocery, fortune, litre, gst5, 115, 140, 50, "1512", DemoBarcode("GRC-OIL-001"));
+        await EnsureProduct("Salt 1 kg (demo)", "GRC-SALT-001", grocery, tata, packet, gst5, 18, 22, 100, "2501", DemoBarcode("GRC-SALT-001"));
+        var biscuit = await EnsureProduct("Parle-G Biscuit Pack (demo)", "GRC-BISC-001", packaged, parle, packet, gst5, 8, 10, 100, "1905", DemoBarcode("GRC-BISC-001"));
+        await EnsureProduct("Britannia Bread (demo)", "GRC-BREAD-001", packaged, britannia, packet, gst5, 30, 35, 40, "1905", DemoBarcode("GRC-BREAD-001"));
+        await EnsureProduct("Amul Butter (demo)", "GRC-BUTTER-001", packaged, amul, packet, gst5, 50, 60, 40, "0405", DemoBarcode("GRC-BUTTER-001"));
+        await EnsureProduct("Mineral Water 1 L (demo)", "GRC-WATER-001", beverages, amul, litre, gst5, 12, 20, 80, "2201", DemoBarcode("GRC-WATER-001"));
+
+        var a06 = await EnsureProduct("Samsung Galaxy A06 4GB/64GB (demo)", "SAM-A06-464", mobiles, samsung, piece, gst18, 7000, 7999, 5, "8517",
+            DemoBarcode("SAM-A06-464"), warrantyValue: 1, warrantyUnit: "Years", serial: true);
+        await EnsureProduct("Samsung Galaxy A16 5G 8GB/128GB (demo)", "SAM-A16-8128", mobiles, samsung, piece, gst18, 16000, 18999, 5, "8517",
+            DemoBarcode("SAM-A16-8128"), warrantyValue: 1, warrantyUnit: "Years", serial: true);
+        await EnsureProduct("Samsung Galaxy A26 5G 8GB/128GB (demo)", "SAM-A26-8128", mobiles, samsung, piece, gst18, 22000, 24999, 3, "8517",
+            DemoBarcode("SAM-A26-8128"), warrantyValue: 1, warrantyUnit: "Years", serial: true);
+        await EnsureProduct("Samsung Galaxy M35 5G 8GB/128GB (demo)", "SAM-M35-8128", mobiles, samsung, piece, gst18, 17000, 19999, 4, "8517",
+            DemoBarcode("SAM-M35-8128"), warrantyValue: 1, warrantyUnit: "Years", serial: true);
+        await EnsureProduct("Samsung Galaxy S24 FE 8GB/128GB (demo)", "SAM-S24FE-8128", mobiles, samsung, piece, gst18, 35000, 39999, 2, "8517",
+            DemoBarcode("SAM-S24FE-8128"), warrantyValue: 1, warrantyUnit: "Years", serial: true);
+
+        var charger = await EnsureProduct("Samsung USB-C Charger (demo)", "SAM-CHARGER-001", accessories, samsung, piece, gst18, 500, 799, 10, "8504",
+            DemoBarcode("SAM-CHARGER-001"), warrantyValue: 6, warrantyUnit: "Months");
+        await EnsureProduct("USB-C Cable (demo)", "SAM-CABLE-001", accessories, samsung, piece, gst18, 100, 199, 20, "8544",
+            DemoBarcode("SAM-CABLE-001"));
+        var cover = await EnsureProduct("Samsung Phone Cover (demo)", "SAM-COVER-001", accessories, samsung, piece, gst18, 150, 299, 15, "3926",
+            DemoBarcode("SAM-COVER-001"));
+        await EnsureProduct("Tempered Glass (demo)", "SAM-GLASS-001", accessories, samsung, piece, gst18, 50, 149, 20, "7007",
+            DemoBarcode("SAM-GLASS-001"));
+
+        await EnsureSupplier();
         var walkIn = await EnsureCustomer(WalkInName, WalkInMobile, "36", null);
         var north = await EnsureCustomer("DEMO North Retail", "9000000001", "36", TestGstinTelangana);
         var west = await EnsureCustomer("DEMO West Retail", "9000000002", "27", TestGstinMaharashtra);
 
-        if (!await DemoPurchaseExists(cable))
-        {
-            await _purchases.CreateAsync(new CreatePurchaseRequest
-            {
-                SupplierId = supplierId,
-                PurchaseDate = DateTime.Today.AddDays(-5),
-                SupplierInvoiceNumber = "DEMO-BILL-001",
-                Remarks = "[DEMO] Restock from wholesale",
-                ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000001"),
-                Items = new List<CreatePurchaseItemRequest>
-                {
-                    new() { ProductId = cable, Quantity = 20, PurchasePrice = 80 },
-                    new() { ProductId = charger, Quantity = 10, PurchasePrice = 250 },
-                    new() { ProductId = mouse, Quantity = 10, PurchasePrice = 400 },
-                    new() { ProductId = hdmi, Quantity = 8, PurchasePrice = 150 },
-                    new() { ProductId = router, Quantity = 4, PurchasePrice = 1800 }
-                }
-            });
-        }
-
-        if (!await DemoSaleExists("aaaaaaaa-bbbb-cccc-dddd-000000000011"))
+        if (!await DemoSaleExists("aaaaaaaa-bbbb-cccc-dddd-000000000021"))
         {
             var created = await _sales.CreateAsync(new CreateSaleRequest
             {
                 CustomerId = walkIn,
-                Remarks = "[DEMO] Walk-in paid in full",
-                ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000011"),
+                Remarks = "[DEMO] Grocery walk-in barcode checkout",
+                ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000021"),
                 Items = new List<CreateSaleItemRequest>
                 {
-                    new() { ProductId = cable, Quantity = 2 },
-                    new() { ProductId = mouse, Quantity = 1 }
+                    new() { ProductId = rice, Quantity = 2, RegisterWarranty = false },
+                    new() { ProductId = biscuit, Quantity = 2, RegisterWarranty = false }
                 }
             });
 
@@ -173,13 +184,13 @@ public class DemoDataService
                 {
                     Method = PaymentMethod.Cash,
                     Amount = detail.Outstanding,
-                    Reference = "DEMO-CASH-WALKIN"
+                    Reference = "DEMO-CASH-GROCERY"
                 });
             }
 
             if (!await DemoReturnExists())
             {
-                var line = detail.Items.FirstOrDefault(i => i.ProductId == cable && i.ReturnableQuantity > 0);
+                var line = detail.Items.FirstOrDefault(i => i.ProductId == biscuit && i.ReturnableQuantity > 0);
                 if (line != null)
                 {
                     var unitValue = line.LineTotal is > 0
@@ -189,7 +200,7 @@ public class DemoDataService
                     await _salesReturns.CreateAsync(new CreateSalesReturnRequest
                     {
                         SaleId = created.SaleId,
-                        Reason = "[DEMO] One cable returned",
+                        Reason = "[DEMO] One biscuit pack returned",
                         RefundAmount = unitValue,
                         RefundMethod = unitValue > 0 ? PaymentMethod.Cash : null,
                         Items = new List<ReturnSaleItemRequest>
@@ -201,17 +212,32 @@ public class DemoDataService
             }
         }
 
-        if (!await DemoSaleExists("aaaaaaaa-bbbb-cccc-dddd-000000000012"))
+        if (!await DemoSaleExists("aaaaaaaa-bbbb-cccc-dddd-000000000022"))
         {
             var created = await _sales.CreateAsync(new CreateSaleRequest
             {
                 CustomerId = north,
-                Remarks = "[DEMO] Paid in full (UPI)",
-                ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000012"),
+                Remarks = "[DEMO] Samsung phone paid in full (UPI)",
+                ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000022"),
                 Items = new List<CreateSaleItemRequest>
                 {
-                    new() { ProductId = phone, Quantity = 1 },
-                    new() { ProductId = charger, Quantity = 1 }
+                    new()
+                    {
+                        ProductId = a06,
+                        Quantity = 1,
+                        RegisterWarranty = true,
+                        WarrantyDurationValue = 1,
+                        WarrantyDurationUnit = "Years",
+                        SerialNumbers = new List<string> { "DEMO-SN-A06-001" }
+                    },
+                    new()
+                    {
+                        ProductId = charger,
+                        Quantity = 1,
+                        RegisterWarranty = true,
+                        WarrantyDurationValue = 6,
+                        WarrantyDurationUnit = "Months"
+                    }
                 }
             });
 
@@ -227,21 +253,21 @@ public class DemoDataService
             }
         }
 
-        if (!await DemoSaleExists("aaaaaaaa-bbbb-cccc-dddd-000000000013"))
+        if (!await DemoSaleExists("aaaaaaaa-bbbb-cccc-dddd-000000000023"))
         {
             var created = await _sales.CreateAsync(new CreateSaleRequest
             {
                 CustomerId = west,
-                Remarks = "[DEMO] Partial payment",
-                ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000013"),
+                Remarks = "[DEMO] Partial payment on cover — profit ignores payments",
+                ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000023"),
                 Items = new List<CreateSaleItemRequest>
                 {
-                    new() { ProductId = laptop, Quantity = 1 }
+                    new() { ProductId = cover, Quantity = 1, RegisterWarranty = false }
                 }
             });
 
             var detail = await _sales.GetByIdAsync(created.SaleId);
-            var partial = Math.Min(20000m, detail.Outstanding);
+            var partial = Math.Min(100m, detail.Outstanding);
             if (partial > 0 && detail.Outstanding > partial)
             {
                 await _sales.RecordPaymentAsync(created.SaleId, new RecordPaymentRequest
@@ -253,19 +279,39 @@ public class DemoDataService
             }
         }
 
-        if (!await DemoSaleExists("aaaaaaaa-bbbb-cccc-dddd-000000000014"))
+        if (!await _context.WarrantyClaims.AnyAsync(c => c.ReportedProblem.Contains("[DEMO]")))
         {
-            await _sales.CreateAsync(new CreateSaleRequest
+            var chargerWarranty = await _context.Warranties
+                .Where(w => w.ProductName.Contains("USB-C Charger") && w.InvoiceNumber != "")
+                .OrderByDescending(w => w.Id)
+                .FirstOrDefaultAsync();
+
+            if (chargerWarranty != null &&
+                WarrantyDates.IsEligible(chargerWarranty.StartDate, chargerWarranty.EndDate, DateTime.Today, chargerWarranty.IsVoided)
+                && !await _context.WarrantyClaims.AnyAsync(c => c.WarrantyId == chargerWarranty.Id))
             {
-                CustomerId = north,
-                Remarks = "[DEMO] Unpaid credit sale",
-                ClientRequestId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-000000000014"),
-                Items = new List<CreateSaleItemRequest>
+                var submitted = await _warranties.SubmitClaimAsync(chargerWarranty.Id, new SubmitWarrantyClaimRequest
                 {
-                    new() { ProductId = router, Quantity = 1 },
-                    new() { ProductId = hdmi, Quantity = 1 }
-                }
-            });
+                    ReportedProblem = "[DEMO] Charger not powering the phone."
+                });
+                await _warranties.UpdateClaimAsync(submitted.Id, new UpdateWarrantyClaimRequest
+                {
+                    Status = "UnderInspection",
+                    InspectionNotes = "[DEMO] Confirmed dead output."
+                });
+                await _warranties.UpdateClaimAsync(submitted.Id, new UpdateWarrantyClaimRequest
+                {
+                    Status = "Approved",
+                    DecisionReason = "[DEMO] Manufacturing fault within shop policy."
+                });
+                await _warranties.UpdateClaimAsync(submitted.Id, new UpdateWarrantyClaimRequest
+                {
+                    Status = "ReplacementIssued",
+                    DecisionReason = "[DEMO] Manufacturing fault within shop policy.",
+                    ReplacementProductId = charger,
+                    ReplacementSerial = "DEMO-SN-CHARGER-RPL"
+                });
+            }
         }
 
         if (!await _context.Expenses.AnyAsync(e => !e.IsDeleted && e.Title.StartsWith("DEMO ")))
@@ -291,50 +337,56 @@ public class DemoDataService
         return new
         {
             Success = true,
-            Message = "Demo electronics catalogue and sample invoices are in place (labelled DEMO). Re-running this does not duplicate them.",
+            Message = "Sample grocery and Samsung catalogue is in place. Prices and DEMO-BC barcodes are fictional. Re-running this does not duplicate SKUs.",
             Products = new[]
             {
-                "DEMO-MOB-001", "DEMO-LAP-001", "DEMO-ACC-001", "DEMO-ACC-002",
-                "DEMO-ACC-003", "DEMO-ACC-004", "DEMO-ACC-005", "DEMO-ACC-006",
-                "DEMO-STO-001", "DEMO-STO-002", "DEMO-NET-001", "DEMO-PRT-001",
-                "DEMO-LOW-001", "DEMO-OUT-001"
+                "GRC-RICE-001", "GRC-DAL-001", "GRC-SUGAR-001", "GRC-ATTA-005",
+                "GRC-OIL-001", "GRC-SALT-001", "GRC-BISC-001", "GRC-BREAD-001",
+                "GRC-BUTTER-001", "GRC-WATER-001",
+                "SAM-A06-464", "SAM-A16-8128", "SAM-A26-8128", "SAM-M35-8128", "SAM-S24FE-8128",
+                "SAM-CHARGER-001", "SAM-CABLE-001", "SAM-COVER-001", "SAM-GLASS-001"
             },
-            Note = "Use a development copy of the database. Test GSTINs 36AAAAA0000A1Z5 / 27AAAAA0000A1Z5 are fictional. Demo invoices stay in reports until you use a fresh copy or an approved reset."
+            Note = "Opening stock is ledger OpeningStock (not doubled with a purchase). Internal barcodes are DEMO-BC-{SKU}. Test GSTINs 36AAAAA0000A1Z5 / 27AAAAA0000A1Z5 are fictional. Quantity is a whole packet/piece — not fractional kg/L."
         };
     }
 
-    private async Task<int> EnsureTax()
+    private async Task<int> EnsureTax(decimal percentage, string preferredName)
     {
         var existing = await _context.Taxes.AsNoTracking()
-            .Where(t => !t.IsDeleted && t.IsActive && t.Percentage == 18)
-            .OrderBy(t => t.Name.StartsWith("DEMO") ? 0 : 1)
+            .Where(t => !t.IsDeleted && t.IsActive && t.Percentage == percentage)
+            .OrderBy(t => t.Name == preferredName ? 0 : 1)
             .Select(t => t.Id)
             .FirstOrDefaultAsync();
         if (existing != 0) return existing;
 
         var created = await _taxes.CreateAsync(new SaveTaxRequest
         {
-            Name = "DEMO GST 18%",
-            Percentage = 18,
+            Name = preferredName,
+            Percentage = percentage,
             Description = "Demo tax rate",
             IsActive = true
         });
         return created.Id;
     }
 
-    private async Task<int> EnsureUnit()
+    private async Task<int> EnsureUnit(string name, string shortName)
     {
         var existing = await _context.Units.AsNoTracking()
             .Where(u => !u.IsDeleted && u.IsActive)
-            .OrderBy(u => u.Name.Contains("Piece") || u.ShortName == "Pcs" ? 0 : 1)
+            .Where(u =>
+                u.Name == name ||
+                u.ShortName == shortName ||
+                (name == "Piece" && (u.Name.Contains("Piece") || u.ShortName == "Pcs")))
+            .OrderBy(u => u.Name == name ? 0 : 1)
             .Select(u => u.Id)
             .FirstOrDefaultAsync();
         if (existing != 0) return existing;
 
         var created = await _units.CreateAsync(new SaveUnitRequest
         {
-            Name = "Pieces",
-            ShortName = "Pcs",
+            Name = name,
+            ShortName = shortName,
+            Description = "Demo unit (integer packets/pieces)",
             IsActive = true
         });
         return created.Id;
@@ -376,13 +428,25 @@ public class DemoDataService
 
     private async Task<int> EnsureProduct(
         string name, string sku, int categoryId, int brandId, int unitId, int? taxId,
-        decimal cost, decimal price, int stock, string hsn)
+        decimal cost, decimal price, int stock, string hsn,
+        string? barcode = null, int? warrantyValue = null, string? warrantyUnit = null, bool serial = false)
     {
-        var existing = await _context.Products.AsNoTracking()
+        var existing = await _context.Products
             .Where(p => !p.IsDeleted && p.SKU == sku)
-            .Select(p => p.Id)
             .FirstOrDefaultAsync();
-        if (existing != 0) return existing;
+        if (existing != null)
+        {
+            if (existing.Barcode == null && barcode != null)
+                existing.Barcode = barcode;
+            if (existing.WarrantyDurationValue == null && warrantyValue != null && warrantyUnit != null)
+            {
+                existing.WarrantyDurationValue = warrantyValue;
+                existing.WarrantyDurationUnit = Enum.Parse<WarrantyDurationUnit>(warrantyUnit, true);
+            }
+            existing.RequiresSerialNumber = serial || existing.RequiresSerialNumber;
+            await _context.SaveChangesAsync();
+            return existing.Id;
+        }
 
         return await _products.CreateAsync(new ProductDto
         {
@@ -395,7 +459,11 @@ public class DemoDataService
             BrandId = brandId,
             UnitId = unitId,
             TaxId = taxId,
-            HsnCode = hsn
+            HsnCode = hsn,
+            Barcode = barcode,
+            WarrantyDurationValue = warrantyValue,
+            WarrantyDurationUnit = warrantyUnit,
+            RequiresSerialNumber = serial
         });
     }
 
@@ -435,10 +503,6 @@ public class DemoDataService
             Address = "Demo warehouse — fictional"
         });
     }
-
-    private Task<bool> DemoPurchaseExists(int productId) =>
-        _context.PurchaseItems.AsNoTracking()
-            .AnyAsync(i => i.ProductId == productId && i.Purchase.Remarks != null && i.Purchase.Remarks.Contains("[DEMO]"));
 
     private Task<bool> DemoSaleExists(string clientRequestId) =>
         _context.Sales.AsNoTracking()

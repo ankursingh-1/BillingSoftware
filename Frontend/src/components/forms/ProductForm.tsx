@@ -47,6 +47,10 @@ const FIELD_NAMES: (keyof SaveProductRequest)[] = [
     "unitId",
     "taxId",
     "hsnCode",
+    "barcode",
+    "warrantyDurationValue",
+    "warrantyDurationUnit",
+    "requiresSerialNumber",
 ];
 
 interface SelectOption {
@@ -97,6 +101,10 @@ function ProductForm({ product, lookups }: ProductFormProps) {
             unitId: product?.unitId ?? null,
             taxId: product?.taxId ?? null,
             hsnCode: product?.hsnCode ?? "",
+            barcode: product?.barcode ?? "",
+            warrantyDurationValue: product?.warrantyDurationValue ?? null,
+            warrantyDurationUnit: product?.warrantyDurationUnit ?? null,
+            requiresSerialNumber: product?.requiresSerialNumber ?? false,
         },
     });
 
@@ -135,9 +143,12 @@ function ProductForm({ product, lookups }: ProductFormProps) {
             name: values.name.trim(),
             sku: values.sku.trim(),
             hsnCode: values.hsnCode?.trim() ? values.hsnCode.trim() : null,
-            // Stock is only used as opening stock on create; the server
-            // ignores it on update.
-            stock: product ? product.stock : values.stock,
+            barcode: values.barcode?.trim() ? values.barcode.trim() : null,
+            warrantyDurationValue: values.warrantyDurationValue || null,
+            warrantyDurationUnit: values.warrantyDurationValue
+                ? values.warrantyDurationUnit
+                : null,
+            stock: values.stock,
         };
 
         try {
@@ -525,64 +536,125 @@ function ProductForm({ product, lookups }: ProductFormProps) {
                             {isEdit ? "Current stock" : "Opening stock"}
                         </label>
 
-                        {isEdit ? (
-                            <>
-                                <input
-                                    id="product-stock"
-                                    type="number"
-                                    className="form-control"
-                                    value={product.stock}
-                                    readOnly
-                                    disabled
-                                />
-
-                                <div className="form-text">
-                                    Stock changes through purchases, sales,
-                                    returns and stock adjustments.
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <input
-                                    id="product-stock"
-                                    type="number"
-                                    step="1"
-                                    min="0"
-                                    inputMode="numeric"
-                                    className={fieldClass(!!errors.stock)}
-                                    aria-invalid={
-                                        errors.stock ? "true" : "false"
+                        <input
+                            id="product-stock"
+                            type="number"
+                            step="1"
+                            min="0"
+                            inputMode="numeric"
+                            className={fieldClass(!!errors.stock)}
+                            aria-invalid={errors.stock ? "true" : "false"}
+                            {...register("stock", {
+                                valueAsNumber: true,
+                                validate: (value) => {
+                                    if (!Number.isFinite(value)) {
+                                        return "Enter 0 or more.";
                                     }
-                                    {...register("stock", {
-                                        valueAsNumber: true,
-                                        validate: (value) => {
-                                            if (!Number.isFinite(value)) {
-                                                return "Enter 0 or more.";
-                                            }
-                                            if (!Number.isInteger(value)) {
-                                                return "Stock must be a whole number.";
-                                            }
-                                            if (value < 0) {
-                                                return "Stock cannot be negative.";
-                                            }
-                                            if (value > 2_147_483_647) {
-                                                return "Stock is too large.";
-                                            }
-                                            return true;
-                                        },
-                                    })}
-                                />
+                                    if (!Number.isInteger(value)) {
+                                        return "Stock must be a whole number.";
+                                    }
+                                    if (value < 0) {
+                                        return "Stock cannot be negative.";
+                                    }
+                                    if (value > 2_147_483_647) {
+                                        return "Stock is too large.";
+                                    }
+                                    return true;
+                                },
+                            })}
+                        />
 
-                                {errors.stock && (
-                                    <div
-                                        className="invalid-feedback"
-                                        role="alert"
-                                    >
-                                        {errors.stock.message}
-                                    </div>
-                                )}
-                            </>
+                        {errors.stock && (
+                            <div className="invalid-feedback" role="alert">
+                                {errors.stock.message}
+                            </div>
                         )}
+
+                        <div className="form-text">
+                            {isEdit
+                                ? "A new quantity is saved as a stock adjustment. Stock cannot go below zero."
+                                : "Recorded through the stock ledger as opening stock."}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="data-card form-section">
+                <h5 className="form-section-title">Barcode &amp; warranty default</h5>
+                <p className="text-muted small mb-3">
+                    The default warranty is used on new sales. Changing it later
+                    does not rewrite warranties already registered on invoices.
+                    Serial numbers are stored on the warranty, not as
+                    serial-level stock.
+                </p>
+                <div className="row g-3">
+                    <div className="col-md-4">
+                        <label htmlFor="product-barcode" className="form-label">
+                            Barcode
+                        </label>
+                        <input
+                            id="product-barcode"
+                            type="text"
+                            className={fieldClass(!!errors.barcode)}
+                            {...register("barcode", {
+                                maxLength: {
+                                    value: 80,
+                                    message: "Barcode cannot exceed 80 characters.",
+                                },
+                            })}
+                        />
+                        {errors.barcode && (
+                            <div className="invalid-feedback" role="alert">
+                                {errors.barcode.message}
+                            </div>
+                        )}
+                    </div>
+                    <div className="col-md-3">
+                        <label htmlFor="product-warranty-value" className="form-label">
+                            Default warranty
+                        </label>
+                        <input
+                            id="product-warranty-value"
+                            type="number"
+                            min={1}
+                            className={fieldClass(!!errors.warrantyDurationValue)}
+                            {...register("warrantyDurationValue", {
+                                setValueAs: toNullableNumber,
+                            })}
+                        />
+                        {errors.warrantyDurationValue && (
+                            <div className="invalid-feedback" role="alert">
+                                {errors.warrantyDurationValue.message}
+                            </div>
+                        )}
+                    </div>
+                    <div className="col-md-3">
+                        <label htmlFor="product-warranty-unit" className="form-label">
+                            Unit
+                        </label>
+                        <select
+                            id="product-warranty-unit"
+                            className={selectClass(!!errors.warrantyDurationUnit)}
+                            {...register("warrantyDurationUnit")}
+                        >
+                            <option value="">— None —</option>
+                            <option value="Days">Days</option>
+                            <option value="Months">Months</option>
+                            <option value="Years">Years</option>
+                        </select>
+                    </div>
+                    <div className="col-md-2 d-flex align-items-end">
+                        <div className="form-check mb-2">
+                            <input
+                                id="product-serial"
+                                type="checkbox"
+                                className="form-check-input"
+                                {...register("requiresSerialNumber")}
+                            />
+                            <label htmlFor="product-serial" className="form-check-label">
+                                Serial required
+                            </label>
+                        </div>
                     </div>
                 </div>
             </div>

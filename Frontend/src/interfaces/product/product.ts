@@ -16,11 +16,15 @@ export interface Product {
     taxName: string | null;
     taxPercentage: number | null;
     hsnCode: string | null;
+    barcode: string | null;
+    warrantyDurationValue: number | null;
+    warrantyDurationUnit: "Days" | "Months" | "Years" | null;
+    requiresSerialNumber: boolean;
 }
 
 /**
  * Request body for create/update (same ProductDto on the server).
- * `stock` is the opening stock on create and is ignored on update.
+ * `stock` is opening stock on create and the desired on-hand quantity on update.
  */
 export interface SaveProductRequest {
     name: string;
@@ -33,6 +37,10 @@ export interface SaveProductRequest {
     unitId: number | null;
     taxId: number | null;
     hsnCode: string | null;
+    barcode: string | null;
+    warrantyDurationValue: number | null;
+    warrantyDurationUnit: "Days" | "Months" | "Years" | null;
+    requiresSerialNumber: boolean;
 }
 
 export interface ProductSearchRequest {
@@ -52,7 +60,13 @@ export type ProductImportStatus =
     | "Invalid"
     | "Duplicate"
     | "Imported"
-    | "Skipped";
+    | "Skipped"
+    | "Unchanged"
+    | "Conflict"
+    | "Updated"
+    | "Added"
+    | "StockIncreased"
+    | "Failed";
 
 export interface ProductImportRow {
     excelRow: number;
@@ -66,8 +80,24 @@ export interface ProductImportRow {
     purchasePrice: number | null;
     sellingPrice: number | null;
     openingStock: number;
+    stockQuantity: number | null;
+    addStockQuantity: number | null;
+    barcode: string | null;
+    warrantyDurationValue: number | null;
+    warrantyDurationUnit: string | null;
+    requiresSerialNumber: boolean;
+    productId: number | null;
+    receiptId: string | null;
     status: ProductImportStatus;
     error: string | null;
+    action: string | null;
+    fieldChanges: string | null;
+    matchedProductId: number | null;
+    currentStock: number | null;
+    proposedStockChange: number;
+    willAddProduct: boolean;
+    willUpdateFields: boolean;
+    willIncreaseStock: boolean;
 }
 
 export interface ProductImportPreview {
@@ -75,6 +105,8 @@ export interface ProductImportPreview {
     valid: number;
     invalid: number;
     duplicate: number;
+    unchanged: number;
+    conflict: number;
     canImport: boolean;
     policy: string;
     rows: ProductImportRow[];
@@ -83,4 +115,8 @@ export interface ProductImportPreview {
 export interface ProductImportResult extends ProductImportPreview {
     imported: number;
     skipped: number;
+    added: number;
+    updated: number;
+    stockIncreased: number;
+    replayed: boolean;
 }

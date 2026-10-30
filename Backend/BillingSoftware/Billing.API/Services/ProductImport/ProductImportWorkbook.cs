@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.RegularExpressions;
 using Billing.Application.DTOs.Products;
 using ClosedXML.Excel;
 
@@ -22,7 +21,9 @@ public static class ProductImportWorkbook
     public static readonly string[] Headers =
     {
         "ProductName", "SKU", "Category", "Brand", "Unit", "Tax", "HSN",
-        "PurchasePrice", "SellingPrice", "OpeningStock"
+        "PurchasePrice", "SellingPrice", "OpeningStock",
+        "Barcode", "WarrantyValue", "WarrantyUnit", "RequiresSerial",
+        "ProductId", "StockQuantity", "AddStockQuantity", "ReceiptId"
     };
 
     private static readonly Dictionary<string, string> HeaderAliases = new(StringComparer.OrdinalIgnoreCase)
@@ -50,19 +51,35 @@ public static class ProductImportWorkbook
         ["mrp"] = "SellingPrice",
         ["openingstock"] = "OpeningStock",
         ["opening stock"] = "OpeningStock",
-        ["stock"] = "OpeningStock"
+        ["stock"] = "OpeningStock",
+        ["stockquantity"] = "StockQuantity",
+        ["stock quantity"] = "StockQuantity",
+        ["stockqty"] = "StockQuantity",
+        ["addstockquantity"] = "AddStockQuantity",
+        ["add stock quantity"] = "AddStockQuantity",
+        ["addstock"] = "AddStockQuantity",
+        ["add stock"] = "AddStockQuantity",
+        ["productid"] = "ProductId",
+        ["product id"] = "ProductId",
+        ["receiptid"] = "ReceiptId",
+        ["receipt id"] = "ReceiptId",
+        ["batchid"] = "ReceiptId",
+        ["importbatchid"] = "ReceiptId",
+        ["deliveryid"] = "ReceiptId",
+        ["barcode"] = "Barcode",
+        ["ean"] = "Barcode",
+        ["upc"] = "Barcode",
+        ["warrantyvalue"] = "WarrantyValue",
+        ["warranty value"] = "WarrantyValue",
+        ["warranty"] = "WarrantyValue",
+        ["warrantyunit"] = "WarrantyUnit",
+        ["warranty unit"] = "WarrantyUnit",
+        ["requiresserial"] = "RequiresSerial",
+        ["requires serial"] = "RequiresSerial",
+        ["serial"] = "RequiresSerial"
     };
 
-    private static readonly Regex Hsn = new(@"^([0-9]{4}|[0-9]{6}|[0-9]{8})$", RegexOptions.Compiled);
-
-    public const string PolicyText =
-        "Existing products are never overwritten. Rows with a SKU that already exists " +
-        "(in the file or in the catalogue) are skipped and listed in the result. " +
-        "Invalid rows are reported and not imported. Valid rows are written in one " +
-        "transaction: they all succeed or none are saved. Opening stock goes through " +
-        "the stock ledger. There is no barcode or description column — those fields " +
-        "are not on the product. Duplicate product names are allowed; SKU must be unique. " +
-        "Maximum 2,000 data rows and 5 MB per file.";
+    public const string PolicyText = ProductImportPlanner.PolicyText;
 
     public static byte[] BuildTemplate(ProductImportCatalog catalog)
     {
@@ -95,20 +112,28 @@ public static class ProductImportWorkbook
             "",
             "Required columns are marked * in the header row.",
             "ProductName*  — up to 200 characters. Duplicate names are allowed.",
-            "SKU*          — up to 200 characters. Must be unique. Existing SKUs are skipped, never overwritten.",
-            "Category      — must match an existing category name exactly (see Lookups).",
+            "SKU*          — up to 200 characters. Unique. Matches an existing product when Product ID and barcode are blank.",
+            "Category      — must match an existing category name exactly (see Lookups). Blank on an existing product leaves the current category.",
             "Brand         — must match an existing brand name (see Lookups).",
             "Unit          — must match an existing unit name (see Lookups).",
             "Tax           — existing tax name (e.g. GST 18) or the rate number (e.g. 18). Inactive taxes are rejected.",
-            "HSN           — 4, 6 or 8 digits. Leave blank if unknown.",
-            "PurchasePrice* — rupees, 0 or more, at most 2 decimal places.",
-            "SellingPrice*  — rupees, 0 or more, at most 2 decimal places.",
-            "OpeningStock   — whole number 0 or more. Added through the stock ledger as opening stock. Leave blank for 0.",
+            "HSN           — 4, 6 or 8 digits. Leave blank if unknown. Blank does not clear an existing HSN.",
+            "PurchasePrice* — rupees, 0 or more, at most 2 decimal places. Required for new products. Blank on an existing product leaves the current price.",
+            "SellingPrice*  — rupees, 0 or more, at most 2 decimal places. Required for new products.",
+            "OpeningStock   — desired on-hand for existing products (Excel − current stock is added). Blank is NOT zero. Excel never reduces stock.",
+            "Barcode        — optional unique shop/EAN code used by POS scan. Match key #2 after Product ID.",
+            "WarrantyValue  — optional default length (whole number). Used only as a default on new sales.",
+            "WarrantyUnit   — Days, Months or Years. Required when WarrantyValue is set.",
+            "RequiresSerial — Yes or No. Serials are stored on warranty registrations, not as serial-level stock.",
+            "ProductId      — optional. Trusted match to an existing product. Do not invent IDs for new rows.",
+            "StockQuantity  — same as OpeningStock (desired on-hand). Confirm recalculates the difference against live stock.",
+            "AddStockQuantity — Mode B: quantity to add (a delivery). Blank or 0 = no add. Do not combine with StockQuantity.",
+            "ReceiptId      — optional delivery/batch id for incremental stock. Same id cannot add twice.",
             "",
             "The Sample sheet is an example only and is NEVER imported.",
             "Do not add extra sheets as the import source. Only the Products sheet is read.",
             "Maximum 2,000 product rows and 5 MB.",
-            "Retrying the same file is safe: products already imported (same SKU) are skipped, so stock is not added twice.",
+            "Retrying the same file (same bytes) returns the original result; stock is not added twice.",
             "",
             PolicyText
         };
@@ -154,7 +179,7 @@ public static class ProductImportWorkbook
         return stream.ToArray();
     }
 
-    public static byte[] BuildExport(IEnumerable<(string Name, string Sku, string? Category, string? Brand, string? Unit, string? Tax, string? Hsn, decimal Purchase, decimal Selling, int Stock)> products)
+    public static byte[] BuildExport(IEnumerable<(int Id, string Name, string Sku, string? Category, string? Brand, string? Unit, string? Tax, string? Hsn, decimal Purchase, decimal Selling, int Stock, string? Barcode, int? WarrantyValue, string? WarrantyUnit, bool RequiresSerial)> products)
     {
         using var workbook = new XLWorkbook();
         var sheet = workbook.AddWorksheet("Products");
@@ -175,6 +200,11 @@ public static class ProductImportWorkbook
             sheet.Cell(row, 9).Value = p.Selling;
             sheet.Cell(row, 9).Style.NumberFormat.Format = "0.00";
             sheet.Cell(row, 10).Value = p.Stock;
+            WriteText(sheet.Cell(row, 11), p.Barcode);
+            if (p.WarrantyValue.HasValue) sheet.Cell(row, 12).Value = p.WarrantyValue.Value;
+            WriteText(sheet.Cell(row, 13), p.WarrantyUnit);
+            WriteText(sheet.Cell(row, 14), p.RequiresSerial ? "Yes" : "No");
+            sheet.Cell(row, 15).Value = p.Id;
             row++;
         }
 
@@ -208,10 +238,18 @@ public static class ProductImportWorkbook
             WriteText(sheet.Cell(row, 7), item.Hsn);
             if (item.PurchasePrice.HasValue) sheet.Cell(row, 8).Value = item.PurchasePrice.Value;
             if (item.SellingPrice.HasValue) sheet.Cell(row, 9).Value = item.SellingPrice.Value;
-            sheet.Cell(row, 10).Value = item.OpeningStock;
-            sheet.Cell(row, 11).Value = item.ExcelRow;
-            sheet.Cell(row, 12).Value = item.Status;
-            WriteText(sheet.Cell(row, 13), item.Error);
+            if (item.StockQuantity.HasValue) sheet.Cell(row, 10).Value = item.StockQuantity.Value;
+            WriteText(sheet.Cell(row, 11), item.Barcode);
+            if (item.WarrantyDurationValue.HasValue) sheet.Cell(row, 12).Value = item.WarrantyDurationValue.Value;
+            WriteText(sheet.Cell(row, 13), item.WarrantyDurationUnit);
+            WriteText(sheet.Cell(row, 14), item.RequiresSerialNumber ? "Yes" : "No");
+            if (item.ProductId.HasValue) sheet.Cell(row, 15).Value = item.ProductId.Value;
+            if (item.StockQuantity.HasValue) sheet.Cell(row, 16).Value = item.StockQuantity.Value;
+            if (item.AddStockQuantity.HasValue) sheet.Cell(row, 17).Value = item.AddStockQuantity.Value;
+            WriteText(sheet.Cell(row, 18), item.ReceiptId);
+            sheet.Cell(row, 19).Value = item.ExcelRow;
+            sheet.Cell(row, 20).Value = item.Status;
+            WriteText(sheet.Cell(row, 21), item.Error);
             row++;
         }
 
@@ -285,17 +323,29 @@ public static class ProductImportWorkbook
             var hsn = CellText(sheet.Cell(r, Col(map, "HSN")));
             var purchaseText = CellText(sheet.Cell(r, Col(map, "PurchasePrice")));
             var sellingText = CellText(sheet.Cell(r, Col(map, "SellingPrice")));
-            var stockText = CellText(sheet.Cell(r, Col(map, "OpeningStock")));
+            var openingText = CellText(sheet.Cell(r, Col(map, "OpeningStock")));
+            var stockQtyText = CellText(sheet.Cell(r, Col(map, "StockQuantity")));
+            var addStockText = CellText(sheet.Cell(r, Col(map, "AddStockQuantity")));
+            var productIdText = CellText(sheet.Cell(r, Col(map, "ProductId")));
+            var receiptId = CellText(sheet.Cell(r, Col(map, "ReceiptId")));
+            var barcode = CellText(sheet.Cell(r, Col(map, "Barcode")));
+            var warrantyValueText = CellText(sheet.Cell(r, Col(map, "WarrantyValue")));
+            var warrantyUnit = CellText(sheet.Cell(r, Col(map, "WarrantyUnit")));
+            var requiresSerial = CellText(sheet.Cell(r, Col(map, "RequiresSerial")));
 
             if (string.IsNullOrWhiteSpace(name) &&
                 string.IsNullOrWhiteSpace(sku) &&
                 string.IsNullOrWhiteSpace(purchaseText) &&
-                string.IsNullOrWhiteSpace(sellingText))
+                string.IsNullOrWhiteSpace(sellingText) &&
+                string.IsNullOrWhiteSpace(openingText) &&
+                string.IsNullOrWhiteSpace(stockQtyText) &&
+                string.IsNullOrWhiteSpace(addStockText) &&
+                string.IsNullOrWhiteSpace(productIdText))
             {
                 continue;
             }
 
-            rows.Add(new ProductImportRowDto
+            var row = new ProductImportRowDto
             {
                 ExcelRow = r,
                 Name = name,
@@ -307,16 +357,26 @@ public static class ProductImportWorkbook
                 Hsn = NullIfEmpty(hsn),
                 PurchasePrice = TryDecimal(purchaseText, out var purchase) ? purchase : null,
                 SellingPrice = TryDecimal(sellingText, out var selling) ? selling : null,
-                OpeningStock = TryInt(stockText, out var stock) ? stock : int.MinValue
-            });
+                Barcode = NullIfEmpty(barcode),
+                WarrantyDurationValue = string.IsNullOrWhiteSpace(warrantyValueText)
+                    ? null
+                    : TryInt(warrantyValueText, out var wv) ? wv : -1,
+                WarrantyDurationUnit = NullIfEmpty(warrantyUnit),
+                RequiresSerialNumber = ParseYes(requiresSerial),
+                RequiresSerialProvided = !string.IsNullOrWhiteSpace(requiresSerial),
+                ReceiptId = NullIfEmpty(receiptId)
+            };
 
-            // Stash unparsed price/stock text on Error temporarily? Better keep raw via sentinel.
+            ParseAbsoluteStock(openingText, stockQtyText, row);
+            ParseOptionalInt(addStockText, v => row.AddStockQuantity = v, () => row.AddStockQuantityUnparsed = true);
+            ParseOptionalInt(productIdText, v => row.ProductId = v, () => row.ProductIdUnparsed = true);
+
             if (!TryDecimal(purchaseText, out _) && !string.IsNullOrWhiteSpace(purchaseText))
-                rows[^1].Error = "purchase-unparsed";
+                row.Error = "purchase-unparsed";
             if (!TryDecimal(sellingText, out _) && !string.IsNullOrWhiteSpace(sellingText))
-                rows[^1].Error = (rows[^1].Error ?? "") + "selling-unparsed";
-            if (!string.IsNullOrWhiteSpace(stockText) && !TryInt(stockText, out _))
-                rows[^1].OpeningStock = int.MinValue;
+                row.Error = (row.Error ?? "") + "selling-unparsed";
+
+            rows.Add(row);
         }
 
         if (rows.Count > MaxRows)
@@ -328,137 +388,11 @@ public static class ProductImportWorkbook
 
     public static List<ProductImportRowDto> Validate(
         IReadOnlyList<ProductImportRowDto> parsed,
-        ProductImportCatalog catalog)
-    {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var result = new List<ProductImportRowDto>(parsed.Count);
+        ProductImportCatalog catalog) =>
+        ProductImportPlanner.Plan(parsed, catalog);
 
-        foreach (var row in parsed)
-        {
-            var copy = Clone(row);
-            copy.Status = ProductImportStatus.Valid;
-            var errors = new List<string>();
-
-            if (string.IsNullOrWhiteSpace(copy.Name))
-                errors.Add("Product name is required.");
-            else if (copy.Name.Length > 200)
-                errors.Add("Product name cannot exceed 200 characters.");
-
-            if (string.IsNullOrWhiteSpace(copy.Sku))
-                errors.Add("SKU is required.");
-            else if (copy.Sku.Length > 200)
-                errors.Add("SKU cannot exceed 200 characters.");
-
-            if (row.Error?.Contains("purchase-unparsed") == true || !copy.PurchasePrice.HasValue)
-                errors.Add("Purchase price is required and must be a number.");
-            else if (copy.PurchasePrice < 0)
-                errors.Add("Purchase price cannot be negative.");
-            else if (!HasMaxTwoDecimals(copy.PurchasePrice.Value))
-                errors.Add("Purchase price can have at most 2 decimal places.");
-
-            if (row.Error?.Contains("selling-unparsed") == true || !copy.SellingPrice.HasValue)
-                errors.Add("Selling price is required and must be a number.");
-            else if (copy.SellingPrice < 0)
-                errors.Add("Selling price cannot be negative.");
-            else if (!HasMaxTwoDecimals(copy.SellingPrice.Value))
-                errors.Add("Selling price can have at most 2 decimal places.");
-
-            if (copy.OpeningStock == int.MinValue)
-            {
-                errors.Add("Opening stock must be a whole number 0 or more.");
-                copy.OpeningStock = 0;
-            }
-            else if (copy.OpeningStock < 0)
-                errors.Add("Opening stock cannot be negative.");
-
-            if (!string.IsNullOrWhiteSpace(copy.Hsn) && !Hsn.IsMatch(copy.Hsn))
-                errors.Add("HSN/SAC must be 4, 6 or 8 digits.");
-
-            if (!string.IsNullOrWhiteSpace(copy.Category))
-            {
-                if (catalog.Categories.TryGetValue(copy.Category, out var id))
-                    copy.CategoryId = id;
-                else
-                    errors.Add($"Category '{copy.Category}' was not found. Use a name from the Lookups sheet.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(copy.Brand))
-            {
-                if (catalog.Brands.TryGetValue(copy.Brand, out var id))
-                    copy.BrandId = id;
-                else
-                    errors.Add($"Brand '{copy.Brand}' was not found.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(copy.Unit))
-            {
-                if (catalog.Units.TryGetValue(copy.Unit, out var id))
-                    copy.UnitId = id;
-                else
-                    errors.Add($"Unit '{copy.Unit}' was not found.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(copy.Tax))
-            {
-                if (!TryMatchTax(copy.Tax, catalog.Taxes, out var taxId, out var taxError))
-                    errors.Add(taxError!);
-                else
-                    copy.TaxId = taxId;
-            }
-
-            if (!string.IsNullOrWhiteSpace(copy.Sku))
-            {
-                if (!seen.Add(copy.Sku))
-                {
-                    copy.Status = ProductImportStatus.Duplicate;
-                    copy.Error = "Duplicate SKU in this file. The first row with this SKU is kept; this one is skipped.";
-                }
-                else if (catalog.ExistingSkus.Contains(copy.Sku))
-                {
-                    copy.Status = ProductImportStatus.Duplicate;
-                    copy.Error = "SKU already exists. Existing products are not overwritten.";
-                }
-            }
-
-            if (errors.Count > 0)
-            {
-                var joined = string.Join(" ", errors);
-                if (copy.Status == ProductImportStatus.Duplicate)
-                    copy.Error = joined + " " + copy.Error;
-                else
-                {
-                    copy.Status = ProductImportStatus.Invalid;
-                    copy.Error = joined;
-                }
-            }
-            else if (copy.Status == ProductImportStatus.Valid)
-            {
-                copy.Error = null;
-            }
-
-            result.Add(copy);
-        }
-
-        return result;
-    }
-
-    public static ProductImportPreviewDto Summarise(List<ProductImportRowDto> rows)
-    {
-        var valid = rows.Count(r => r.Status == ProductImportStatus.Valid);
-        var invalid = rows.Count(r => r.Status == ProductImportStatus.Invalid);
-        var duplicate = rows.Count(r => r.Status == ProductImportStatus.Duplicate);
-
-        return new ProductImportPreviewDto
-        {
-            TotalRows = rows.Count,
-            Valid = valid,
-            Invalid = invalid,
-            Duplicate = duplicate,
-            CanImport = valid > 0,
-            Policy = PolicyText,
-            Rows = rows
-        };
-    }
+    public static ProductImportPreviewDto Summarise(List<ProductImportRowDto> rows) =>
+        ProductImportPlanner.Summarise(rows);
 
     private static void WriteHeader(IXLWorksheet sheet, bool requiredMarks = true)
     {
@@ -515,10 +449,7 @@ public static class ProductImportWorkbook
     {
         value = 0;
         if (string.IsNullOrWhiteSpace(text))
-        {
-            value = 0;
-            return true;
-        }
+            return false;
 
         if (decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var d))
         {
@@ -531,64 +462,62 @@ public static class ProductImportWorkbook
         return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
     }
 
-    private static bool HasMaxTwoDecimals(decimal value) =>
-        Math.Abs(value * 100m - Math.Round(value * 100m, 0, MidpointRounding.AwayFromZero)) < 0.0000001m;
-
-    private static bool TryMatchTax(string text, List<ProductImportTax> taxes, out int? id, out string? error)
+    private static void ParseOptionalInt(string text, Action<int> assign, Action markUnparsed)
     {
-        id = null;
-        error = null;
-        var trimmed = text.Trim().TrimEnd('%');
+        if (string.IsNullOrWhiteSpace(text))
+            return;
 
-        var byName = taxes.Where(t => t.Name.Equals(text.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
-        if (byName.Count == 1)
-        {
-            id = byName[0].Id;
-            return true;
-        }
-
-        if (byName.Count > 1)
-        {
-            error = $"More than one tax is named '{text}'.";
-            return false;
-        }
-
-        if (decimal.TryParse(trimmed, NumberStyles.Number, CultureInfo.InvariantCulture, out var rate))
-        {
-            var byRate = taxes.Where(t => t.Percentage == rate).ToList();
-            if (byRate.Count == 1)
-            {
-                id = byRate[0].Id;
-                return true;
-            }
-
-            if (byRate.Count > 1)
-            {
-                error = $"More than one tax has rate {rate}%. Use the tax name from the Lookups sheet.";
-                return false;
-            }
-        }
-
-        error = $"Tax '{text}' was not found or is inactive.";
-        return false;
+        if (TryInt(text, out var value))
+            assign(value);
+        else
+            markUnparsed();
     }
 
-    private static ProductImportRowDto Clone(ProductImportRowDto row) => new()
+    private static void ParseAbsoluteStock(string openingText, string stockQtyText, ProductImportRowDto row)
     {
-        ExcelRow = row.ExcelRow,
-        Name = row.Name,
-        Sku = row.Sku,
-        Category = row.Category,
-        Brand = row.Brand,
-        Unit = row.Unit,
-        Tax = row.Tax,
-        Hsn = row.Hsn,
-        PurchasePrice = row.PurchasePrice,
-        SellingPrice = row.SellingPrice,
-        OpeningStock = row.OpeningStock,
-        Status = row.Status,
-        Error = row.Error
-    };
+        var openingBlank = string.IsNullOrWhiteSpace(openingText);
+        var qtyBlank = string.IsNullOrWhiteSpace(stockQtyText);
+
+        int? opening = null;
+        int? qty = null;
+        var bad = false;
+
+        if (!openingBlank)
+        {
+            if (TryInt(openingText, out var value))
+                opening = value;
+            else
+                bad = true;
+        }
+
+        if (!qtyBlank)
+        {
+            if (TryInt(stockQtyText, out var value))
+                qty = value;
+            else
+                bad = true;
+        }
+
+        if (opening.HasValue && qty.HasValue && opening.Value != qty.Value)
+            bad = true;
+
+        if (bad)
+        {
+            row.StockQuantityUnparsed = true;
+            return;
+        }
+
+        row.StockQuantity = qty ?? opening;
+    }
+
+    private static bool ParseYes(string value)
+    {
+        var t = value.Trim();
+        return t.Equals("yes", StringComparison.OrdinalIgnoreCase)
+            || t.Equals("y", StringComparison.OrdinalIgnoreCase)
+            || t.Equals("true", StringComparison.OrdinalIgnoreCase)
+            || t.Equals("1");
+    }
 
     private static string? NullIfEmpty(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -622,8 +551,8 @@ public static class ProductImportWorkbook
             ["HDMI cable", "SAMPLE-HDMI-01", "", "", "", "", "", 150, 220, 0],
             ["", "SAMPLE-NONAME", "", "", "", "", "", 10, 20, 0],
             ["Negative price", "SAMPLE-NEG-01", "", "", "", "", "", -1, 20, 0],
-            ["Duplicate of first", "SAMPLE-USB-01", "", "", "", "", "", 1, 2, 0],
-            ["Already in catalogue", "EXISTING-1", "", "", "", "", "", 1, 2, 0]
+            ["USB cable", "SAMPLE-USB-01", catalog.Categories.Keys.FirstOrDefault() ?? "Electronics", "", "", catalog.Taxes.FirstOrDefault()?.Name ?? "", "8517", 80, 120, 5],
+            ["Existing", "EXISTING-1", "", "", "", "", "", 1, 2, 10]
         ];
 
         for (var r = 0; r < rows.Length; r++)

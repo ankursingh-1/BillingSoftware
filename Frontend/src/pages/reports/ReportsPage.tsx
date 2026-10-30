@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 
 import DateRangeInputs, {
     DateRangeWarning,
 } from "../../components/common/DateRangeInputs";
+import Pagination from "../../components/common/Pagination";
 
 import { useDateRange } from "../../hooks/useDateRange";
 import {
     downloadReportExcel,
+    downloadReportPdf,
     getCustomerReport,
     getExpenseReport,
     getPaymentReport,
@@ -52,14 +55,38 @@ function ReportsPage() {
     const [profit, setProfit] = useState<ProfitReport | null>(null);
     const [total, setTotal] = useState<number | null>(null);
     const [note, setNote] = useState<string | null>(null);
+    const [paging, setPaging] = useState({
+        totalRecords: 0,
+        totalPages: 1,
+        pageSize: 50,
+    });
+
+    const pageSize = 50;
+    const filterKey = `${tab}|${stockFilter}|${range.from}|${range.to}|${String(range.invalid)}`;
+    const [pageState, setPageState] = useState({ page: 1, forQuery: filterKey });
+    const page = pageState.forQuery === filterKey ? pageState.page : 1;
 
     const query = {
         ...range.filters,
-        pageNumber: 1,
-        pageSize: 50,
+        pageNumber: page,
+        pageSize,
         lowStockOnly: tab === "stock" && stockFilter === "low" ? true : undefined,
         outOfStockOnly:
             tab === "stock" && stockFilter === "out" ? true : undefined,
+    };
+
+    const rememberPage = (data: {
+        totalRecords?: number;
+        totalPages?: number;
+        pageSize?: number;
+        items?: unknown[];
+    }) => {
+        const records = data.totalRecords ?? data.items?.length ?? 0;
+        setPaging({
+            totalRecords: records,
+            totalPages: data.totalPages ?? 1,
+            pageSize: data.pageSize ?? pageSize,
+        });
     };
 
     useEffect(() => {
@@ -75,36 +102,42 @@ function ReportsPage() {
                     if (!cancelled) {
                         setSales(data.items);
                         setTotal(data.grandTotal ?? 0);
+                        rememberPage(data);
                     }
                 } else if (tab === "purchases") {
                     const data = await getPurchaseReport(query);
                     if (!cancelled) {
                         setPurchases(data.items);
                         setTotal(data.grandTotal ?? 0);
+                        rememberPage(data);
                     }
                 } else if (tab === "stock") {
                     const data = await getStockReport(query);
                     if (!cancelled) {
                         setStock(data.items);
                         setTotal(data.totalStockValue ?? 0);
+                        rememberPage(data);
                     }
                 } else if (tab === "profit") {
                     const data = await getProfitReport(query);
                     if (!cancelled) {
                         setProfit(data);
                         setTotal(data.grossProfit);
+                        rememberPage({ items: data.items });
                     }
                 } else if (tab === "expenses") {
                     const data = await getExpenseReport(query);
                     if (!cancelled) {
                         setExpenses(data.items);
                         setTotal(data.grandTotal ?? 0);
+                        rememberPage(data);
                     }
                 } else if (tab === "customers") {
                     const data = await getCustomerReport(query);
                     if (!cancelled) {
                         setCustomers(data.items);
                         setTotal(data.totalOutstanding ?? 0);
+                        rememberPage(data);
                     }
                 } else if (tab === "suppliers") {
                     const data = await getSupplierReport(query);
@@ -112,12 +145,14 @@ function ReportsPage() {
                         setSuppliers(data.items);
                         setTotal(data.totalPurchased ?? 0);
                         setNote(data.limitation ?? null);
+                        rememberPage(data);
                     }
                 } else {
                     const data = await getPaymentReport(query);
                     if (!cancelled) {
                         setPayments(data.items);
                         setTotal(data.totalCollected ?? 0);
+                        rememberPage(data);
                     }
                 }
             } catch (error) {
@@ -136,8 +171,9 @@ function ReportsPage() {
         return () => {
             cancelled = true;
         };
+        // Query fields are listed directly. page resets when filterKey changes.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tab, stockFilter, range.from, range.to, range.invalid]);
+    }, [tab, stockFilter, range.from, range.to, range.invalid, page]);
 
     const handleExcel = () => {
         setExporting(true);
@@ -146,6 +182,19 @@ function ReportsPage() {
                 toast.error(
                     getApiErrorMessage(error, "Unable to download Excel.")
                 )
+            )
+            .finally(() => setExporting(false));
+    };
+
+    const handlePdf = () => {
+        if (tab !== "sales" && tab !== "profit") {
+            return;
+        }
+
+        setExporting(true);
+        void downloadReportPdf(tab, query)
+            .catch((error) =>
+                toast.error(getApiErrorMessage(error, "Unable to download PDF."))
             )
             .finally(() => setExporting(false));
     };
@@ -161,6 +210,16 @@ function ReportsPage() {
         { id: "profit", label: "Gross profit" },
     ];
 
+    const warrantyKinds = [
+        ["active", "Active warranties"],
+        ["expiring", "Expiring"],
+        ["expired", "Expired"],
+        ["claims", "All claims"],
+        ["approved", "Approved claims"],
+        ["rejected", "Rejected claims"],
+        ["replacements", "Replacements"],
+    ] as const;
+
     return (
         <div className="data-page">
             <div className="data-page-header">
@@ -170,17 +229,45 @@ function ReportsPage() {
                         Figures come from saved invoices, purchases and stock.
                         Gross profit uses the cost recorded on each sale line,
                         never sales minus purchases. Voided payments are
-                        excluded from collections.
+                        excluded from collections. Warranty lists live on the
+                        Warranty page (in-app only — no SMS or email).
                     </p>
                 </div>
-                <button
-                    type="button"
-                    className="btn btn-outline-primary"
-                    disabled={exporting}
-                    onClick={handleExcel}
-                >
-                    Download Excel
-                </button>
+                <div className="d-flex flex-wrap gap-2">
+                    {(tab === "sales" || tab === "profit") && (
+                        <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            disabled={exporting}
+                            onClick={handlePdf}
+                        >
+                            Download PDF
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        className="btn btn-outline-primary"
+                        disabled={exporting}
+                        onClick={handleExcel}
+                    >
+                        Download Excel
+                    </button>
+                </div>
+            </div>
+
+            <div className="data-card mb-3 p-3">
+                <h6 className="mb-2">Warranty reports</h6>
+                <div className="d-flex flex-wrap gap-2">
+                    {warrantyKinds.map(([kind, label]) => (
+                        <Link
+                            key={kind}
+                            className="btn btn-sm btn-outline-secondary"
+                            to={`/warranties?status=${kind}`}
+                        >
+                            {label}
+                        </Link>
+                    ))}
+                </div>
             </div>
 
             <div className="data-card">
@@ -253,11 +340,27 @@ function ReportsPage() {
                                         {profit.limitation}
                                     </div>
                                 )}
-                                <p className="mb-2">
-                                    Sales {formatCurrency(profit.totalSales)}.
+                                <p className="mb-1">
+                                    Net sales (ex-tax, after returns){" "}
+                                    {formatCurrency(profit.totalSales)}.
+                                </p>
+                                <p className="mb-1">
                                     {profit.costComplete
-                                        ? ` Cost of goods sold ${formatCurrency(profit.costOfGoodsSold)}. Gross profit ${formatCurrency(profit.grossProfit ?? 0)}.`
-                                        : " Gross profit is not shown while cost is missing on some lines."}
+                                        ? `Gross profit ${formatCurrency(profit.grossProfit ?? 0)}.`
+                                        : profit.grossProfit !== null
+                                          ? `Known gross profit ${formatCurrency(profit.grossProfit)} (complete invoices only).`
+                                          : "Gross profit unavailable — no invoice in this range has a full cost snapshot."}
+                                    {profit.profitPercentage !== null
+                                        ? ` Margin ${profit.profitPercentage.toFixed(2)}%.`
+                                        : ""}
+                                </p>
+                                <p className="mb-0 text-muted small">
+                                    Complete invoices{" "}
+                                    {profit.completeInvoices ?? 0}. Incomplete{" "}
+                                    {profit.incompleteInvoices ?? 0}. Coverage{" "}
+                                    {(profit.coveragePercent ?? 0).toFixed(1)}%.
+                                    Lines with cost {profit.linesWithCost},
+                                    missing {profit.linesMissingCost}.
                                 </p>
                             </div>
                         )}
@@ -298,9 +401,10 @@ function ReportsPage() {
                                     <tr>
                                         <th>Invoice</th>
                                         <th>Date</th>
-                                        <th className="text-end">Sale</th>
+                                        <th className="text-end">Net sales</th>
                                         <th className="text-end">Cost</th>
                                         <th className="text-end">Profit</th>
+                                        <th>Cost data</th>
                                     </tr>
                                 )}
                                 {tab === "expenses" && (
@@ -379,7 +483,7 @@ function ReportsPage() {
                                     ))}
                                 {tab === "profit" &&
                                     profit?.items.map((row) => (
-                                        <tr key={row.invoiceNumber}>
+                                        <tr key={row.saleId || row.invoiceNumber}>
                                             <td>{row.invoiceNumber}</td>
                                             <td>{formatDate(row.saleDate)}</td>
                                             <td className="text-end">
@@ -387,7 +491,7 @@ function ReportsPage() {
                                             </td>
                                             <td className="text-end">
                                                 {row.costOfGoodsSold == null
-                                                    ? "incomplete"
+                                                    ? "Cost unavailable"
                                                     : formatCurrency(
                                                           row.costOfGoodsSold
                                                       )}
@@ -397,6 +501,7 @@ function ReportsPage() {
                                                     ? "—"
                                                     : formatCurrency(row.profit)}
                                             </td>
+                                            <td>{row.costStatus}</td>
                                         </tr>
                                     ))}
                                 {tab === "expenses" &&
@@ -468,6 +573,19 @@ function ReportsPage() {
                                       : "Total "}
                                 {formatCurrency(total)}
                             </div>
+                        )}
+
+                        {tab !== "profit" && (
+                            <Pagination
+                                page={page}
+                                totalPages={paging.totalPages}
+                                totalRecords={paging.totalRecords}
+                                pageSize={paging.pageSize}
+                                disabled={loading}
+                                onPageChange={(next) =>
+                                    setPageState({ page: next, forQuery: filterKey })
+                                }
+                            />
                         )}
                     </div>
                 )}

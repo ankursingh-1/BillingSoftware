@@ -30,6 +30,11 @@ public class Company : BaseEntity
     public string? FooterMessage { get; set; }
 
     // ---- Invoice print settings (presentation only; never change saved invoice data) ----
+    /// <summary>
+    /// Counter defaults: grocery prefers walk-in; electronics prompts for warranty.
+    /// </summary>
+    public ShopType ShopType { get; set; } = ShopType.GeneralRetail;
+
     public InvoiceFormat DefaultInvoiceFormat { get; set; } = InvoiceFormat.A4;
 
     /// <summary>58 or 80.</summary>

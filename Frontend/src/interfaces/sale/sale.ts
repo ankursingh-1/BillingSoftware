@@ -154,6 +154,17 @@ export interface SaleDetail {
     items: SaleItemDetail[];
     payments: SalePayment[];
     returns: SaleReturnSummary[];
+    warranties: SaleWarrantyLine[];
+}
+
+export interface SaleWarrantyLine {
+    saleItemId: number;
+    warrantyNumber: string;
+    productName: string;
+    serialNumber: string | null;
+    duration: string;
+    startDate: string;
+    endDate: string;
 }
 
 export interface CreateSaleItemRequest {
@@ -161,6 +172,12 @@ export interface CreateSaleItemRequest {
     quantity: number;
     /** Price the cashier saw; the server rejects the sale if it changed. */
     unitPrice?: number;
+    registerWarranty?: boolean;
+    warrantyDurationValue?: number | null;
+    warrantyDurationUnit?: "Days" | "Months" | "Years" | null;
+    warrantyStartDate?: string | null;
+    warrantyNotes?: string | null;
+    serialNumbers?: string[];
 }
 
 export interface CreateSalePaymentRequest {

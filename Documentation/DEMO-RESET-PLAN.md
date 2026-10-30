@@ -1,8 +1,8 @@
 # Demo / test database reset plan
 
-**Status: NOT EXECUTED.** Waiting for your approval of this exact target.
+**Status: EXECUTED 2026-10-29 on `BillingSoftware_Verify` only.**
 
-No rows have been deleted. A copy-only backup of the proposed target was taken first.
+Copy-only backup taken first. `BillingSoftwareDb` was not reset.
 
 ## Databases identified
 
@@ -42,6 +42,8 @@ Transactional and catalogue **shop data**, in FK-safe `DELETE` order (no `TRUNCA
 
 | Category | Tables | Current rows (Verify) |
 |---|---|---|
+| Warranty claims | `WarrantyClaimEvents`, `WarrantyClaims` | present after `AddRetailWarrantyAndBarcode` |
+| Warranties | `Warranties` | present after `AddRetailWarrantyAndBarcode` |
 | Sales returns | `SalesReturnItems`, `SalesReturns` | 6 / 5 |
 | Purchase returns | `PurchaseReturnItems`, `PurchaseReturns` | 4 / 3 |
 | Payments | `Payments` | 21 |
@@ -90,8 +92,12 @@ The script:
 4. Settings → **Seed demo records**.
 5. Optionally rename the company in Settings to **Demo Electronics Store**. The seed does **not** overwrite GSTIN/state.
 
-## Approval needed
+## Execution (2026-10-29)
 
-Reply with whether I may run `Reset-VerifyShop.ps1` against **`BillingSoftware_Verify` only**, using the backup above.
+Ran from `Backend/BillingSoftware/scripts`:
 
-I will not run it against `BillingSoftwareDb`.
+```powershell
+.\Reset-VerifyShop.ps1 -IConfirmReset 'RESET BillingSoftware_Verify'
+```
+
+`sqlcmd` needed `-x` (so `%s` is not treated as a variable) and `SET QUOTED_IDENTIFIER ON` because of filtered indexes. After reset, Admin seed created the grocery/Samsung sample catalogue. Do **not** run this script against `BillingSoftwareDb`.

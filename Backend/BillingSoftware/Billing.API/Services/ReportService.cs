@@ -11,11 +11,13 @@ public class ReportService
 {
     private readonly BillingDbContext _context;
     private readonly StockAlertPolicy _alerts;
+    private readonly GrossProfitService _grossProfit;
 
-    public ReportService(BillingDbContext context, StockAlertPolicy alerts)
+    public ReportService(BillingDbContext context, StockAlertPolicy alerts, GrossProfitService grossProfit)
     {
         _context = context;
         _alerts = alerts;
+        _grossProfit = grossProfit;
     }
 
     public async Task<SalesReportResponse> GetSalesReportAsync(SalesReportRequest request)
@@ -27,12 +29,14 @@ public class ReportService
 
         if (request.FromDate.HasValue)
         {
-            query = query.Where(x => x.SaleDate >= request.FromDate.Value);
+            var from = ReportWindow.StartOfDay(request.FromDate.Value);
+            query = query.Where(x => x.SaleDate >= from);
         }
 
         if (request.ToDate.HasValue)
         {
-            query = query.Where(x => x.SaleDate <= request.ToDate.Value);
+            var toExclusive = ReportWindow.EndExclusive(request.ToDate.Value);
+            query = query.Where(x => x.SaleDate < toExclusive);
         }
 
         if (request.CustomerId.HasValue)
@@ -46,14 +50,15 @@ public class ReportService
                 x.InvoiceNumber.Contains(request.InvoiceNumber));
         }
 
+        var (pageNumber, pageSize) = NormalizePage(request.PageNumber, request.PageSize);
         var totalRecords = await query.CountAsync();
 
         var grandTotal = await query.SumAsync(x => x.TotalAmount);
 
         var items = await query
             .OrderByDescending(x => x.SaleDate)
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .Select(x => new SalesReportItemDto
             {
                 SaleId = x.Id,
@@ -66,10 +71,10 @@ public class ReportService
 
         return new SalesReportResponse
         {
-            PageNumber = request.PageNumber,
-            PageSize = request.PageSize,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
             TotalRecords = totalRecords,
-            TotalPages = (int)Math.Ceiling((double)totalRecords / request.PageSize),
+            TotalPages = (int)Math.Ceiling((double)totalRecords / pageSize),
             GrandTotal = grandTotal,
             Items = items
         };
@@ -82,10 +87,16 @@ public class ReportService
             .AsQueryable();
 
         if (request.FromDate.HasValue)
-            query = query.Where(x => x.PurchaseDate >= request.FromDate.Value);
+        {
+            var from = ReportWindow.StartOfDay(request.FromDate.Value);
+            query = query.Where(x => x.PurchaseDate >= from);
+        }
 
         if (request.ToDate.HasValue)
-            query = query.Where(x => x.PurchaseDate <= request.ToDate.Value);
+        {
+            var toExclusive = ReportWindow.EndExclusive(request.ToDate.Value);
+            query = query.Where(x => x.PurchaseDate < toExclusive);
+        }
 
         if (request.SupplierId.HasValue)
             query = query.Where(x => x.SupplierId == request.SupplierId.Value);
@@ -93,14 +104,15 @@ public class ReportService
         if (!string.IsNullOrWhiteSpace(request.PurchaseNumber))
             query = query.Where(x => x.PurchaseNumber.Contains(request.PurchaseNumber));
 
+        var (pageNumber, pageSize) = NormalizePage(request.PageNumber, request.PageSize);
         var totalRecords = await query.CountAsync();
 
         var grandTotal = await query.SumAsync(x => x.TotalAmount);
 
         var items = await query
             .OrderByDescending(x => x.PurchaseDate)
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .Select(x => new PurchaseReportItemDto
             {
                 PurchaseId = x.Id,
@@ -113,10 +125,10 @@ public class ReportService
 
         return new PurchaseReportResponse
         {
-            PageNumber = request.PageNumber,
-            PageSize = request.PageSize,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
             TotalRecords = totalRecords,
-            TotalPages = (int)Math.Ceiling((double)totalRecords / request.PageSize),
+            TotalPages = (int)Math.Ceiling((double)totalRecords / pageSize),
             GrandTotal = grandTotal,
             Items = items
         };
@@ -147,14 +159,15 @@ public class ReportService
             query = query.Where(x => x.Stock == 0);
         }
 
+        var (pageNumber, pageSize) = NormalizePage(request.PageNumber, request.PageSize);
         var totalRecords = await query.CountAsync();
 
         var totalStockValue = await query.SumAsync(x => x.Stock * x.PurchasePrice);
 
         var items = await query
             .OrderBy(x => x.Name)
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .Select(x => new StockReportItemDto
             {
                 ProductId = x.Id,
@@ -169,10 +182,10 @@ public class ReportService
 
         return new StockReportResponse
         {
-            PageNumber = request.PageNumber,
-            PageSize = request.PageSize,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
             TotalRecords = totalRecords,
-            TotalPages = (int)Math.Ceiling((double)totalRecords / request.PageSize),
+            TotalPages = (int)Math.Ceiling((double)totalRecords / pageSize),
             TotalStockValue = totalStockValue,
             Items = items
         };
@@ -180,65 +193,34 @@ public class ReportService
 
     public async Task<ProfitReportResponse> GetProfitReportAsync(ProfitReportRequest request)
     {
-        var query = _context.Sales
-            .Include(x => x.SaleItems)
-            .AsNoTracking()
-            .AsQueryable();
+        DateTime? from = request.FromDate.HasValue
+            ? ReportWindow.StartOfDay(request.FromDate.Value)
+            : null;
+        DateTime? toExclusive = request.ToDate.HasValue
+            ? ReportWindow.EndExclusive(request.ToDate.Value)
+            : null;
 
-        if (request.FromDate.HasValue)
-            query = query.Where(x => x.SaleDate >= request.FromDate.Value.Date);
-
-        if (request.ToDate.HasValue)
-            query = query.Where(x => x.SaleDate <= request.ToDate.Value.Date.AddDays(1).AddTicks(-1));
-
-        var sales = await query.ToListAsync();
-        var withCost = 0;
-        var missing = 0;
-
-        var items = sales.Select(sale =>
-        {
-            var complete = sale.SaleItems.All(i => i.CostPrice.HasValue);
-            decimal? cogs = complete
-                ? sale.SaleItems.Sum(i => i.Quantity * i.CostPrice!.Value)
-                : null;
-
-            foreach (var line in sale.SaleItems)
-            {
-                if (line.CostPrice.HasValue) withCost++;
-                else missing++;
-            }
-
-            return new ProfitReportItemDto
-            {
-                InvoiceNumber = sale.InvoiceNumber,
-                SaleDate = sale.SaleDate,
-                SaleAmount = sale.TotalAmount,
-                CostOfGoodsSold = cogs,
-                Profit = cogs.HasValue ? sale.TotalAmount - cogs.Value : null,
-                CostComplete = complete
-            };
-        }).ToList();
-
-        var totalSales = items.Sum(x => x.SaleAmount);
-        var costComplete = missing == 0;
-        var cogsTotal = costComplete ? items.Sum(x => x.CostOfGoodsSold ?? 0) : (decimal?)null;
+        var period = await _grossProfit.ForPeriodAsync(from, toExclusive);
+        var summary = period.Summary;
+        var completeRevenue = period.Invoices.Where(i => i.CostComplete).Sum(i => i.SaleAmount);
+        decimal? margin = summary.KnownGrossProfit is { } profit && completeRevenue > 0
+            ? Math.Round(profit / completeRevenue * 100, 2, MidpointRounding.AwayFromZero)
+            : null;
 
         return new ProfitReportResponse
         {
-            TotalSales = totalSales,
-            CostOfGoodsSold = cogsTotal ?? 0,
-            GrossProfit = cogsTotal.HasValue ? totalSales - cogsTotal.Value : null,
-            ProfitPercentage = cogsTotal is > 0
-                ? Math.Round((totalSales - cogsTotal.Value) / cogsTotal.Value * 100, 2)
-                : null,
-            LinesWithCost = withCost,
-            LinesMissingCost = missing,
-            CostComplete = costComplete,
-            Limitation = costComplete
-                ? null
-                : "Gross profit is not shown because some sale lines have no recorded cost. " +
-                  "It is not calculated as sales minus purchases (that would count unsold stock as an expense).",
-            Items = items
+            TotalSales = summary.NetRevenue,
+            CostOfGoodsSold = summary.KnownCostOfGoodsSold,
+            GrossProfit = summary.KnownGrossProfit,
+            ProfitPercentage = margin,
+            CompleteInvoices = summary.CompleteInvoices,
+            IncompleteInvoices = summary.IncompleteInvoices,
+            CoveragePercent = summary.CoveragePercent,
+            LinesWithCost = summary.LinesWithCost,
+            LinesMissingCost = summary.LinesMissingCost,
+            CostComplete = summary.CostComplete,
+            Limitation = summary.Limitation,
+            Items = period.Invoices.ToList()
         };
     }
 
@@ -455,5 +437,11 @@ public class ReportService
             TotalCollected = totalCollected,
             Items = items
         };
+    }
+
+    private static (int PageNumber, int PageSize) NormalizePage(int pageNumber, int pageSize)
+    {
+        var size = Math.Clamp(pageSize <= 0 ? 10 : pageSize, 1, 10_000);
+        return (Math.Max(pageNumber, 1), size);
     }
 }

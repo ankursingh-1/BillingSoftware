@@ -85,6 +85,10 @@ public class CompanyService : ICompanyService
         if (request.ThermalPaperWidthMm != 58 && request.ThermalPaperWidthMm != 80)
             throw new BusinessException("Thermal paper width must be 58 or 80 mm.");
 
+        if (!Enum.TryParse<ShopType>(request.ShopType, true, out var shopType)
+            || !Enum.IsDefined(shopType))
+            throw new BusinessException("Shop type must be GeneralRetail, Electronics or Grocery.");
+
         // ---- State: code wins; otherwise derive it from the GSTIN or the state name ----
         var stateCode = NormalizeOptional(request.StateCode);
         if (stateCode != null && !GstStates.IsValidCode(stateCode))
@@ -135,6 +139,7 @@ public class CompanyService : ICompanyService
         company.ShowTerms = request.ShowTerms;
         company.ShowFooter = request.ShowFooter;
         company.IsActive = request.IsActive;
+        company.ShopType = shopType;
 
         _audit.Record(
             isNew ? "Company.Create" : "Company.Update", "Company", company.Id.ToString(),
@@ -198,6 +203,7 @@ public class CompanyService : ICompanyService
         ShowLogo = company.ShowLogo,
         ShowTerms = company.ShowTerms,
         ShowFooter = company.ShowFooter,
-        IsActive = company.IsActive
+        IsActive = company.IsActive,
+        ShopType = company.ShopType.ToString()
     };
 }

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
@@ -8,7 +8,12 @@ import {
     createCustomer,
     searchCustomers,
 } from "../../services/customers/customerService";
-import { getProduct, searchProducts } from "../../services/products/productService";
+import { getCompany } from "../../services/company/companyService";
+import {
+    getProduct,
+    scanProduct,
+    searchProducts,
+} from "../../services/products/productService";
 import { createSale } from "../../services/sales/salesService";
 import {
     getApiErrorMessage,
@@ -20,6 +25,7 @@ import {
     roundMoney,
 } from "../../utils/format";
 
+import type { ShopType } from "../../interfaces/company/company";
 import type { Customer } from "../../interfaces/customer/customer";
 import type { PaymentMethod } from "../../interfaces/lookups/lookups";
 import type { Product } from "../../interfaces/product/product";
@@ -30,6 +36,10 @@ import "../../styles/sales.css";
 interface CartLine {
     product: Product;
     quantity: number;
+    registerWarranty: boolean;
+    warrantyDurationValue: string;
+    warrantyDurationUnit: "Days" | "Months" | "Years";
+    serialText: string;
 }
 
 const WALK_IN_MOBILE = "9000000000";
@@ -78,6 +88,10 @@ function NewSalePage() {
     const [refreshing, setRefreshing] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [walkInBusy, setWalkInBusy] = useState(false);
+    const [shopType, setShopType] = useState<ShopType>("GeneralRetail");
+    const [barcode, setBarcode] = useState("");
+    const [scanBusy, setScanBusy] = useState(false);
+    const barcodeRef = useRef<HTMLInputElement>(null);
 
     // Guards against a double click before React re-renders the disabled button.
     const submittingRef = useRef(false);
@@ -121,6 +135,29 @@ function NewSalePage() {
 
         if (line.quantity > line.product.stock) {
             return `Only ${line.product.stock} in stock.`;
+        }
+
+        if (line.registerWarranty) {
+            const value = Number(line.warrantyDurationValue);
+            if (!Number.isInteger(value) || value < 1) {
+                return "Enter a warranty duration of at least 1.";
+            }
+
+            const serials = line.serialText
+                .split(/[\n,]/)
+                .map((item) => item.trim())
+                .filter(Boolean);
+
+            if (
+                line.product.requiresSerialNumber &&
+                serials.length !== line.quantity
+            ) {
+                return `Enter ${line.quantity} serial number(s), one per unit.`;
+            }
+
+            if (serials.length > 0 && serials.length !== line.quantity) {
+                return `Enter one serial per unit (${line.quantity}), or none.`;
+            }
         }
 
         return null;
@@ -199,6 +236,31 @@ function NewSalePage() {
     };
 
     // ---- Cart actions ----
+    useEffect(() => {
+        let cancelled = false;
+
+        const load = async () => {
+            try {
+                const company = await getCompany();
+                if (cancelled || !company) {
+                    return;
+                }
+
+                setShopType(company.shopType);
+                if (company.shopType === "Grocery") {
+                    await selectWalkIn();
+                }
+            } catch {
+                // Shop type is optional; billing still works.
+            }
+        };
+
+        void load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const addProduct = (product: Product) => {
         setFormError(null);
 
@@ -213,7 +275,23 @@ function NewSalePage() {
             );
 
             if (!existing) {
-                return [...current, { product, quantity: 1 }];
+                const register =
+                    shopType !== "Grocery" &&
+                    product.warrantyDurationValue != null;
+
+                return [
+                    ...current,
+                    {
+                        product,
+                        quantity: 1,
+                        registerWarranty: register,
+                        warrantyDurationValue:
+                            product.warrantyDurationValue?.toString() ?? "1",
+                        warrantyDurationUnit:
+                            product.warrantyDurationUnit ?? "Years",
+                        serialText: "",
+                    },
+                ];
             }
 
             if (existing.quantity >= product.stock) {
@@ -232,6 +310,31 @@ function NewSalePage() {
 
         setProductQuery("");
         setProductOpen(false);
+    };
+
+    const handleScan = async () => {
+        const code = barcode.trim();
+        if (!code || scanBusy) {
+            return;
+        }
+
+        setScanBusy(true);
+        try {
+            const product = await scanProduct(code);
+            addProduct(product);
+            setBarcode("");
+            barcodeRef.current?.focus();
+        } catch (err) {
+            if (getApiStatus(err) === 404) {
+                toast.warning(
+                    `No product matches barcode or SKU "${code}".`
+                );
+            } else {
+                toast.error(getApiErrorMessage(err, "Unable to scan."));
+            }
+        } finally {
+            setScanBusy(false);
+        }
     };
 
     const setQuantity = (productId: number, value: string) => {
@@ -308,6 +411,17 @@ function NewSalePage() {
                 productId: line.product.id,
                 quantity: line.quantity,
                 unitPrice: line.product.sellingPrice,
+                registerWarranty: line.registerWarranty,
+                warrantyDurationValue: line.registerWarranty
+                    ? Number(line.warrantyDurationValue)
+                    : null,
+                warrantyDurationUnit: line.registerWarranty
+                    ? line.warrantyDurationUnit
+                    : null,
+                serialNumbers: line.serialText
+                    .split(/[\n,]/)
+                    .map((item) => item.trim())
+                    .filter(Boolean),
             })),
             payments: paying
                 ? [
@@ -511,6 +625,11 @@ function NewSalePage() {
                         <div className="d-flex justify-content-between align-items-center mb-3">
                             <h5 className="pos-panel-title mb-0">
                                 2. Products
+                                {shopType === "Grocery" && (
+                                    <span className="badge text-bg-success ms-2">
+                                        Grocery POS
+                                    </span>
+                                )}
                             </h5>
 
                             {cart.length > 0 && (
@@ -524,6 +643,41 @@ function NewSalePage() {
                                     Refresh prices
                                 </button>
                             )}
+                        </div>
+
+                        <div className="input-group mb-2">
+                            <span className="input-group-text">
+                                <i className="bi bi-upc"></i>
+                            </span>
+                            <input
+                                ref={barcodeRef}
+                                id="pos-barcode"
+                                type="text"
+                                className="form-control"
+                                placeholder="Scan barcode or SKU, then Enter"
+                                autoComplete="off"
+                                value={barcode}
+                                onChange={(e) => setBarcode(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        void handleScan();
+                                    }
+                                }}
+                                disabled={submitting || scanBusy}
+                            />
+                            <button
+                                type="button"
+                                className="btn btn-outline-primary"
+                                onClick={() => void handleScan()}
+                                disabled={submitting || scanBusy || !barcode.trim()}
+                            >
+                                {scanBusy ? "…" : "Add"}
+                            </button>
+                        </div>
+                        <div className="form-text mb-3">
+                            Scanning the same barcode again increases quantity by 1, up to available stock.
+                            Quantity is a whole number (kg/litre packed items are billed as packets or pieces).
                         </div>
 
                         <div className="pos-results mb-3">
@@ -661,11 +815,120 @@ function NewSalePage() {
                                                     </strong>
                                                     <div className="small text-muted">
                                                         {line.product.sku}
+                                                        {line.product.barcode
+                                                            ? ` · ${line.product.barcode}`
+                                                            : ""}
+                                                        {line.product.unitName
+                                                            ? ` · ${line.product.unitName}`
+                                                            : ""}
+                                                        {` · stock ${line.product.stock}`}
                                                         {line.product
                                                             .taxPercentage
                                                             ? ` · ${line.product.taxPercentage}% tax`
                                                             : ""}
                                                     </div>
+                                                    <div className="form-check mt-2">
+                                                        <input
+                                                            id={`wrn-${line.product.id}`}
+                                                            type="checkbox"
+                                                            className="form-check-input"
+                                                            checked={line.registerWarranty}
+                                                            onChange={(e) =>
+                                                                setCart((current) =>
+                                                                    current.map((item) =>
+                                                                        item.product.id ===
+                                                                        line.product.id
+                                                                            ? {
+                                                                                  ...item,
+                                                                                  registerWarranty:
+                                                                                      e.target.checked,
+                                                                              }
+                                                                            : item
+                                                                    )
+                                                                )
+                                                            }
+                                                        />
+                                                        <label
+                                                            htmlFor={`wrn-${line.product.id}`}
+                                                            className="form-check-label small"
+                                                        >
+                                                            Register warranty
+                                                        </label>
+                                                    </div>
+                                                    {line.registerWarranty && (
+                                                        <div className="d-flex flex-wrap gap-2 mt-2">
+                                                            <input
+                                                                type="number"
+                                                                min={1}
+                                                                className="form-control form-control-sm"
+                                                                style={{ width: 80 }}
+                                                                aria-label="Warranty duration"
+                                                                value={line.warrantyDurationValue}
+                                                                onChange={(e) =>
+                                                                    setCart((current) =>
+                                                                        current.map((item) =>
+                                                                            item.product.id ===
+                                                                            line.product.id
+                                                                                ? {
+                                                                                      ...item,
+                                                                                      warrantyDurationValue:
+                                                                                          e.target.value,
+                                                                                  }
+                                                                                : item
+                                                                        )
+                                                                    )
+                                                                }
+                                                            />
+                                                            <select
+                                                                className="form-select form-select-sm"
+                                                                style={{ width: 110 }}
+                                                                aria-label="Warranty unit"
+                                                                value={line.warrantyDurationUnit}
+                                                                onChange={(e) =>
+                                                                    setCart((current) =>
+                                                                        current.map((item) =>
+                                                                            item.product.id ===
+                                                                            line.product.id
+                                                                                ? {
+                                                                                      ...item,
+                                                                                      warrantyDurationUnit:
+                                                                                          e.target.value as
+                                                                                              | "Days"
+                                                                                              | "Months"
+                                                                                              | "Years",
+                                                                                  }
+                                                                                : item
+                                                                        )
+                                                                    )
+                                                                }
+                                                            >
+                                                                <option value="Days">Days</option>
+                                                                <option value="Months">Months</option>
+                                                                <option value="Years">Years</option>
+                                                            </select>
+                                                            <input
+                                                                type="text"
+                                                                className="form-control form-control-sm"
+                                                                placeholder="Serials (one per unit)"
+                                                                aria-label="Serial numbers"
+                                                                value={line.serialText}
+                                                                onChange={(e) =>
+                                                                    setCart((current) =>
+                                                                        current.map((item) =>
+                                                                            item.product.id ===
+                                                                            line.product.id
+                                                                                ? {
+                                                                                      ...item,
+                                                                                      serialText:
+                                                                                          e.target.value,
+                                                                                  }
+                                                                                : item
+                                                                        )
+                                                                    )
+                                                                }
+                                                            />
+                                                        </div>
+                                                    )}
                                                     {lineProblems[index] && (
                                                         <div
                                                             className="small text-danger"

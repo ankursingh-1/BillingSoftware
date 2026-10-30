@@ -1,4 +1,5 @@
 ﻿using Billing.API.Services;
+using Billing.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,10 +13,12 @@ public class DashboardController : ControllerBase
     private const int MaxChartDays = 90;
 
     private readonly DashboardService _dashboardService;
+    private readonly IWarrantyService _warranties;
 
-    public DashboardController(DashboardService dashboardService)
+    public DashboardController(DashboardService dashboardService, IWarrantyService warranties)
     {
         _dashboardService = dashboardService;
+        _warranties = warranties;
     }
 
     [HttpGet("summary")]
@@ -48,6 +51,12 @@ public class DashboardController : ControllerBase
         var result = await _dashboardService.GetLowStockProductsAsync();
 
         return Ok(result);
+    }
+
+    [HttpGet("expiring-warranties")]
+    public async Task<IActionResult> GetExpiringWarranties()
+    {
+        return Ok(await _warranties.ExpiringAsync(8));
     }
 
     [HttpGet("top-products")]

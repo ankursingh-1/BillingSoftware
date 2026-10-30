@@ -60,4 +60,19 @@ internal static class SqlTransactionHelper
         if (await command.ExecuteNonQueryAsync() == 0)
             throw Billing.Shared.Exceptions.BusinessException.NotFound("Purchase not found.");
     }
+
+    /// <summary>
+    /// Exclusive row lock on a product until the transaction ends, so Excel import
+    /// and other stock movements for the same SKU run one after another.
+    /// </summary>
+    public static async Task LockProductAsync(BillingDbContext context, int productId)
+    {
+        await using var command = CreateCommand(
+            context,
+            "UPDATE Products SET modifieson = @now WHERE Id = @id AND IsDeleted = 0;",
+            ("@now", DateTime.UtcNow), ("@id", productId));
+
+        if (await command.ExecuteNonQueryAsync() == 0)
+            throw Billing.Shared.Exceptions.BusinessException.NotFound("Product not found.");
+    }
 }

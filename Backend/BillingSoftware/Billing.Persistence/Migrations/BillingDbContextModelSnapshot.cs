@@ -300,6 +300,13 @@ namespace Billing.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("ShopType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("GeneralRetail");
+
                     b.Property<bool>("ShowBankDetails")
                         .HasColumnType("bit");
 
@@ -545,6 +552,10 @@ namespace Billing.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.Property<int?>("BrandId")
                         .HasColumnType("int");
 
@@ -576,6 +587,9 @@ namespace Billing.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<bool>("RequiresSerialNumber")
+                        .HasColumnType("bit");
+
                     b.Property<string>("SKU")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -594,10 +608,21 @@ namespace Billing.Persistence.Migrations
                     b.Property<int?>("UnitId")
                         .HasColumnType("int");
 
+                    b.Property<string>("WarrantyDurationUnit")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("WarrantyDurationValue")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("modifieson")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Barcode")
+                        .IsUnique()
+                        .HasFilter("[Barcode] IS NOT NULL AND [IsDeleted] = 0");
 
                     b.HasIndex("BrandId");
 
@@ -611,6 +636,93 @@ namespace Billing.Persistence.Migrations
                         {
                             t.HasCheckConstraint("CK_Products_Stock_NonNegative", "[Stock] >= 0");
                         });
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.ProductImportBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FileHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("modifieson")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileHash")
+                        .IsUnique();
+
+                    b.ToTable("ProductImportBatches", (string)null);
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.ProductImportReceipt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BatchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReceiptKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("modifieson")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ReceiptKey")
+                        .IsUnique();
+
+                    b.ToTable("ProductImportReceipts", (string)null);
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.Purchase", b =>
@@ -1547,6 +1659,241 @@ namespace Billing.Persistence.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("Billing.Domain.Entities.Warranty", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CustomerMobile")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("DurationUnit")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("DurationValue")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<bool>("IsVoided")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ProductSku")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("SaleId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SaleItemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("WarrantyNumber")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTime?>("modifieson")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("CustomerMobile");
+
+                    b.HasIndex("InvoiceNumber");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("SaleId");
+
+                    b.HasIndex("SaleItemId");
+
+                    b.HasIndex("SerialNumber")
+                        .IsUnique()
+                        .HasFilter("[SerialNumber] IS NOT NULL AND [IsVoided] = 0");
+
+                    b.HasIndex("WarrantyNumber")
+                        .IsUnique();
+
+                    b.ToTable("Warranties", (string)null);
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.WarrantyClaim", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClaimNumber")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DecisionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("DefectiveSerial")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("InspectionNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int?>("ReplacementProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReplacementProductName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ReplacementSerial")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<bool>("ReplacementStockMoved")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ReportedProblem")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ResolvedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("SubmittedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WarrantyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("modifieson")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClaimNumber")
+                        .IsUnique();
+
+                    b.HasIndex("ReplacementProductId");
+
+                    b.HasIndex("WarrantyId");
+
+                    b.ToTable("WarrantyClaims", (string)null);
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.WarrantyClaimEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("WarrantyClaimId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("modifieson")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WarrantyClaimId");
+
+                    b.ToTable("WarrantyClaimEvents", (string)null);
+                });
+
             modelBuilder.Entity("Billing.Domain.Entities.Payment", b =>
                 {
                     b.HasOne("Billing.Domain.Entities.Sale", "Sale")
@@ -1587,6 +1934,25 @@ namespace Billing.Persistence.Migrations
                     b.Navigation("Tax");
 
                     b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.ProductImportReceipt", b =>
+                {
+                    b.HasOne("Billing.Domain.Entities.ProductImportBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Billing.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.Purchase", b =>
@@ -1747,6 +2113,69 @@ namespace Billing.Persistence.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("Billing.Domain.Entities.Warranty", b =>
+                {
+                    b.HasOne("Billing.Domain.Entities.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Billing.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Billing.Domain.Entities.Sale", "Sale")
+                        .WithMany("Warranties")
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Billing.Domain.Entities.SaleItem", "SaleItem")
+                        .WithMany("Warranties")
+                        .HasForeignKey("SaleItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Sale");
+
+                    b.Navigation("SaleItem");
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.WarrantyClaim", b =>
+                {
+                    b.HasOne("Billing.Domain.Entities.Product", "ReplacementProduct")
+                        .WithMany()
+                        .HasForeignKey("ReplacementProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Billing.Domain.Entities.Warranty", "Warranty")
+                        .WithMany("Claims")
+                        .HasForeignKey("WarrantyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ReplacementProduct");
+
+                    b.Navigation("Warranty");
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.WarrantyClaimEvent", b =>
+                {
+                    b.HasOne("Billing.Domain.Entities.WarrantyClaim", "WarrantyClaim")
+                        .WithMany("Events")
+                        .HasForeignKey("WarrantyClaimId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WarrantyClaim");
+                });
+
             modelBuilder.Entity("Billing.Domain.Entities.Brand", b =>
                 {
                     b.Navigation("Products");
@@ -1782,6 +2211,13 @@ namespace Billing.Persistence.Migrations
                     b.Navigation("Payments");
 
                     b.Navigation("SaleItems");
+
+                    b.Navigation("Warranties");
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.SaleItem", b =>
+                {
+                    b.Navigation("Warranties");
                 });
 
             modelBuilder.Entity("Billing.Domain.Entities.SalesReturn", b =>
@@ -1797,6 +2233,16 @@ namespace Billing.Persistence.Migrations
             modelBuilder.Entity("Billing.Domain.Entities.Unit", b =>
                 {
                     b.Navigation("Products");
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.Warranty", b =>
+                {
+                    b.Navigation("Claims");
+                });
+
+            modelBuilder.Entity("Billing.Domain.Entities.WarrantyClaim", b =>
+                {
+                    b.Navigation("Events");
                 });
 #pragma warning restore 612, 618
         }

@@ -4,6 +4,7 @@ using Billing.Persistence.Context;
 using Billing.Shared.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace Billing.API.Controllers;
@@ -32,6 +33,7 @@ public class AuthController : ControllerBase
         public string Password { get; set; } = string.Empty;
     }
 
+    [EnableRateLimiting("login")]
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginModel model)
     {

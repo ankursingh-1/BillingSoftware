@@ -1,4 +1,5 @@
 using Billing.Domain.Entities;
+using Billing.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -84,6 +85,12 @@ namespace Billing.Persistence.Configurations
             builder.Property(x => x.DefaultInvoiceFormat)
                    .HasConversion<string>()
                    .HasMaxLength(20);
+
+            builder.Property(x => x.ShopType)
+                   .HasConversion<string>()
+                   .HasMaxLength(30)
+                   .HasDefaultValue(ShopType.GeneralRetail)
+                   .HasSentinel((ShopType)0);
         }
     }
 }

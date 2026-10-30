@@ -6,19 +6,42 @@ const ROLE_CLAIMS = [
     "role",
 ];
 
-function readPayload(): Record<string, unknown> | null {
-    const token = localStorage.getItem("token");
-    const part = token?.split(".")[1];
+/** JWT segments are base64url and often omit the '=' padding atob requires. */
+export function decodeJwtPayload(token: string): Record<string, unknown> | null {
+    const part = token.split(".")[1];
 
     if (!part) {
         return null;
     }
 
     try {
-        return JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+        const base64 = part.replace(/-/g, "+").replace(/_/g, "/");
+        const pad = (4 - (base64.length % 4)) % 4;
+        return JSON.parse(atob(base64 + "=".repeat(pad))) as Record<string, unknown>;
     } catch {
         return null;
     }
+}
+
+function readPayload(): Record<string, unknown> | null {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+        return null;
+    }
+
+    return decodeJwtPayload(token);
+}
+
+/** True when there is no token, it cannot be read, or its exp is in the past. */
+export function isStoredTokenExpired(): boolean {
+    const payload = readPayload();
+
+    if (!payload || typeof payload.exp !== "number") {
+        return true;
+    }
+
+    return payload.exp <= Math.floor(Date.now() / 1000);
 }
 
 export function getCurrentRoles(): string[] {

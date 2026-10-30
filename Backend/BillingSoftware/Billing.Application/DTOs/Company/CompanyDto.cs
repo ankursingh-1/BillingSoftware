@@ -36,4 +36,7 @@ public class CompanyDto
     public bool ShowFooter { get; set; } = true;
 
     public bool IsActive { get; set; }
+
+    /// <summary>GeneralRetail, Electronics or Grocery.</summary>
+    public string ShopType { get; set; } = "GeneralRetail";
 }

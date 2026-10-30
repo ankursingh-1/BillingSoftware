@@ -70,7 +70,7 @@ internal static class PdfParts
     public static (string Label, string Colour) StatusStyle(string status) => status switch
     {
         "Paid" => ("PAID", "#15803d"),
-        "Partial" => ("PARTLY PAID", "#b45309"),
+        "Partial" => ("PARTIALLY PAID", "#b45309"),
         "Unpaid" => ("UNPAID", "#b91c1c"),
         "Settled" => ("SETTLED", "#475569"),
         _ => ("PAYMENT NOT RECORDED", "#475569")

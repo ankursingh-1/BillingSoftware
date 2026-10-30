@@ -10,7 +10,11 @@ namespace Billing.API.Services;
 
 public class ExpenseService : IExpenseService
 {
-    private const int MaxPageSize = 100;
+    /// <summary>
+    /// List pages ask for 10–50 rows. Excel export asks for 10,000.
+    /// A cap of 100 silently truncated the expense workbook.
+    /// </summary>
+    private const int MaxPageSize = 10_000;
     private readonly BillingDbContext _context;
 
     public ExpenseService(BillingDbContext context)

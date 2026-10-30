@@ -5,16 +5,26 @@
 
 SET XACT_ABORT ON;
 SET NOCOUNT ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
 
 IF DB_NAME() <> N'BillingSoftware_Verify'
 BEGIN
-    RAISERROR(
-        'Refusing to reset database [%s]. This script only runs on BillingSoftware_Verify.',
-        16, 1, DB_NAME());
+    DECLARE @wrongDb sysname = DB_NAME();
+    DECLARE @msg nvarchar(400);
+    SET @msg = N'Refusing to reset database [' + @wrongDb + N']. This script only runs on BillingSoftware_Verify.';
+    RAISERROR(@msg, 16, 1);
     RETURN;
 END;
 
 BEGIN TRANSACTION;
+
+IF OBJECT_ID(N'dbo.WarrantyClaimEvents', N'U') IS NOT NULL
+    DELETE FROM dbo.WarrantyClaimEvents;
+IF OBJECT_ID(N'dbo.WarrantyClaims', N'U') IS NOT NULL
+    DELETE FROM dbo.WarrantyClaims;
+IF OBJECT_ID(N'dbo.Warranties', N'U') IS NOT NULL
+    DELETE FROM dbo.Warranties;
 
 DELETE FROM dbo.SalesReturnItems;
 DELETE FROM dbo.SalesReturns;

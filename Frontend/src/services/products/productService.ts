@@ -47,6 +47,14 @@ export const getProduct = async (id: number): Promise<Product> => {
     return response.data;
 };
 
+export const scanProduct = async (code: string): Promise<Product> => {
+    const response = await apiClient.get<Product>("/Products/scan", {
+        params: { code },
+    });
+
+    return response.data;
+};
+
 export const createProduct = async (
     request: SaveProductRequest
 ): Promise<CreateProductResponse> => {

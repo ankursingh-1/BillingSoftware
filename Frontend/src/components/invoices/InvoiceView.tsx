@@ -319,6 +319,8 @@ function A4Invoice({ sale }: { sale: SaleDetail }) {
                 <Totals sale={sale} />
             </section>
 
+            <WarrantyPrintBlock sale={sale} />
+
             {sale.settings.showTerms && company.terms && (
                 <div className="inv-terms">
                     <div className="inv-label">Terms &amp; conditions</div>
@@ -421,6 +423,8 @@ function CompactInvoice({ sale }: { sale: SaleDetail }) {
                 </div>
                 <Totals sale={sale} />
             </section>
+
+            <WarrantyPrintBlock sale={sale} />
 
             {sale.settings.showFooter && company.footer && (
                 <footer className="invoice-footer text-center">
@@ -546,11 +550,39 @@ function ThermalInvoice({
                 </>
             )}
 
+            <WarrantyPrintBlock sale={sale} compact />
+
             <p className="mt-2">{sale.amountInWords}</p>
             {sale.settings.showFooter && company.footer && (
                 <p className="text-center mt-3">{company.footer}</p>
             )}
         </article>
+    );
+}
+
+function WarrantyPrintBlock({
+    sale,
+    compact,
+}: {
+    sale: SaleDetail;
+    compact?: boolean;
+}) {
+    if (!sale.warranties || sale.warranties.length === 0) {
+        return null;
+    }
+
+    return (
+        <section className="mt-3">
+            <div className="inv-label">Warranty registration</div>
+            {sale.warranties.map((item) => (
+                <p key={item.warrantyNumber} className={compact ? "mb-1 small" : "mb-1"}>
+                    {item.warrantyNumber} · {item.productName}
+                    {item.serialNumber ? ` · SN ${item.serialNumber}` : ""} ·{" "}
+                    {item.duration} · {formatDate(item.startDate)} to{" "}
+                    {formatDate(item.endDate)}
+                </p>
+            ))}
+        </section>
     );
 }
 

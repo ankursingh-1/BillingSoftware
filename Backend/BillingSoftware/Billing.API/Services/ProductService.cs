@@ -42,6 +42,10 @@ public class ProductService
         TaxId = x.TaxId,
         TaxName = x.Tax != null ? x.Tax.Name : null,
         TaxPercentage = x.Tax != null ? x.Tax.Percentage : null,
+        Barcode = x.Barcode,
+        WarrantyDurationValue = x.WarrantyDurationValue,
+        WarrantyDurationUnit = x.WarrantyDurationUnit != null ? x.WarrantyDurationUnit.ToString() : null,
+        RequiresSerialNumber = x.RequiresSerialNumber,
     };
 
     private async Task ValidateReferencesAsync(ProductDto dto)
@@ -74,6 +78,13 @@ public class ProductService
         if (await _context.Products.AnyAsync(x => x.SKU == sku && !x.IsDeleted))
             throw BusinessException.Conflict("SKU already exists.");
 
+        var barcode = NormalizeOptional(dto.Barcode);
+        if (barcode != null &&
+            await _context.Products.AnyAsync(x => x.Barcode == barcode && !x.IsDeleted))
+            throw BusinessException.Conflict("Barcode already exists.");
+
+        var (warrantyValue, warrantyUnit) = ParseWarrantyDefault(dto);
+
         await ValidateReferencesAsync(dto);
 
         // Product and its opening-stock ledger entry succeed or fail together.
@@ -87,6 +98,10 @@ public class ProductService
             SellingPrice = dto.SellingPrice,
             Stock = 0,
             HsnCode = NormalizeOptional(dto.HsnCode),
+            Barcode = barcode,
+            WarrantyDurationValue = warrantyValue,
+            WarrantyDurationUnit = warrantyUnit,
+            RequiresSerialNumber = dto.RequiresSerialNumber,
             CategoryId = dto.CategoryId,
             BrandId = dto.BrandId,
             UnitId = dto.UnitId,
@@ -153,22 +168,48 @@ public class ProductService
             throw BusinessException.Conflict("SKU already exists.");
         }
 
+        var barcode = NormalizeOptional(dto.Barcode);
+        if (barcode != null &&
+            await _context.Products.AnyAsync(x =>
+                x.Id != id && x.Barcode == barcode && !x.IsDeleted))
+        {
+            throw BusinessException.Conflict("Barcode already exists.");
+        }
+
+        var (warrantyValue, warrantyUnit) = ParseWarrantyDefault(dto);
+
         await ValidateReferencesAsync(dto);
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
 
         product.Name = name;
         product.SKU = sku;
         product.PurchasePrice = dto.PurchasePrice;
         product.SellingPrice = dto.SellingPrice;
         product.HsnCode = NormalizeOptional(dto.HsnCode);
-        // Stock is intentionally NOT updated here. Changing it from a stale
-        // client value would overwrite sales/purchases made in the meantime
-        // and bypass the stock ledger. Use stock adjustments instead.
+        product.Barcode = barcode;
+        product.WarrantyDurationValue = warrantyValue;
+        product.WarrantyDurationUnit = warrantyUnit;
+        product.RequiresSerialNumber = dto.RequiresSerialNumber;
         product.CategoryId = dto.CategoryId;
         product.BrandId = dto.BrandId;
         product.UnitId = dto.UnitId;
         product.TaxId = dto.TaxId;
 
+        if (dto.Stock != product.Stock)
+        {
+            var increase = dto.Stock > product.Stock;
+            var quantity = Math.Abs(dto.Stock - product.Stock);
+            await _inventoryService.AdjustStockAsync(
+                product.Id,
+                quantity,
+                increase ? StockTransactionType.Adjustment : StockTransactionType.AdjustmentOut,
+                product.SKU,
+                "Product form stock correction");
+        }
+
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
 
     public async Task DeleteAsync(int id)
@@ -199,7 +240,8 @@ public class ProductService
 
             query = query.Where(x =>
                 x.Name.Contains(search) ||
-                x.SKU.Contains(search));
+                x.SKU.Contains(search) ||
+                (x.Barcode != null && x.Barcode.Contains(search)));
         }
 
         int totalRecords = await query.CountAsync();
@@ -220,6 +262,34 @@ public class ProductService
             PageSize = pageSize,
             Data = products
         };
+    }
+
+    public async Task<ProductDto?> GetByCodeAsync(string code)
+    {
+        var value = code.Trim();
+        if (value.Length == 0)
+            return null;
+
+        return await _context.Products
+            .AsNoTracking()
+            .Where(x => !x.IsDeleted && (x.SKU == value || x.Barcode == value))
+            .Select(ToDto)
+            .FirstOrDefaultAsync();
+    }
+
+    private static (int? Value, WarrantyDurationUnit? Unit) ParseWarrantyDefault(ProductDto dto)
+    {
+        if (dto.WarrantyDurationValue is null && string.IsNullOrWhiteSpace(dto.WarrantyDurationUnit))
+            return (null, null);
+
+        if (dto.WarrantyDurationValue is null || string.IsNullOrWhiteSpace(dto.WarrantyDurationUnit))
+            throw new BusinessException("Set both the warranty duration and the unit (Days, Months or Years), or leave both empty.");
+
+        if (!Enum.TryParse<WarrantyDurationUnit>(dto.WarrantyDurationUnit, true, out var unit)
+            || !Enum.IsDefined(unit))
+            throw new BusinessException("Warranty unit must be Days, Months or Years.");
+
+        return (dto.WarrantyDurationValue, unit);
     }
 
     private static string? NormalizeOptional(string? value)

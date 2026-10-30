@@ -63,4 +63,52 @@ public class PaymentCalculatorTests
         Assert.Equal(PaymentStatus.Settled, s.Status);
         Assert.Equal(0, s.Outstanding);
     }
+
+    [Fact]
+    public void Half_paisa_gap_rounds_to_paid()
+    {
+        var s = PaymentCalculator.Summarise(100m, 0, 99.996m, 0, true);
+        Assert.Equal(PaymentStatus.Paid, s.Status);
+        Assert.Equal(0, s.Outstanding);
+    }
+
+    [Fact]
+    public void One_paisa_short_stays_partial()
+    {
+        var s = PaymentCalculator.Summarise(100m, 0, 99.99m, 0, true);
+        Assert.Equal(PaymentStatus.Partial, s.Status);
+        Assert.Equal(0.01m, s.Outstanding);
+    }
+
+    [Fact]
+    public void Remaining_payment_after_partial_is_paid()
+    {
+        var first = PaymentCalculator.Summarise(1000, 0, 400, 0, true);
+        Assert.Equal(PaymentStatus.Partial, first.Status);
+        Assert.Equal(600, first.Outstanding);
+
+        var second = PaymentCalculator.Summarise(1000, 0, 1000, 0, true);
+        Assert.Equal(PaymentStatus.Paid, second.Status);
+        Assert.Equal(0, second.Outstanding);
+    }
+
+    [Fact]
+    public void Multiple_payments_sum_to_paid()
+    {
+        var s = PaymentCalculator.Summarise(1000, 0, 250 + 250 + 500, 0, true);
+        Assert.Equal(PaymentStatus.Paid, s.Status);
+    }
+
+    [Fact]
+    public void Voided_amount_excluded_by_passing_only_valid_payments()
+    {
+        const decimal valid = 400m;
+        const decimal voided = 600m;
+        var includingVoid = PaymentCalculator.Summarise(1000, 0, valid + voided, 0, true);
+        var excludingVoid = PaymentCalculator.Summarise(1000, 0, valid, 0, true);
+
+        Assert.Equal(PaymentStatus.Paid, includingVoid.Status);
+        Assert.Equal(PaymentStatus.Partial, excludingVoid.Status);
+        Assert.Equal(600, excludingVoid.Outstanding);
+    }
 }

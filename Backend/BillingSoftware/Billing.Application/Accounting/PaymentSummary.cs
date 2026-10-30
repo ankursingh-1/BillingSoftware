@@ -31,10 +31,10 @@ public static class PaymentCalculator
         decimal refunded,
         bool paymentTracked)
     {
-        var netPayable = Math.Max(0, invoiceTotal - returnsTotal);
-        var netPaid = paid - refunded;
-        var outstanding = Math.Max(0, netPayable - netPaid);
-        var refundDue = Math.Max(0, netPaid - netPayable);
+        var netPayable = GstCalculator.Round(Math.Max(0, invoiceTotal - returnsTotal));
+        var netPaid = GstCalculator.Round(paid - refunded);
+        var outstanding = GstCalculator.Round(Math.Max(0, netPayable - netPaid));
+        var refundDue = GstCalculator.Round(Math.Max(0, netPaid - netPayable));
 
         PaymentStatus status;
         if (!paymentTracked)

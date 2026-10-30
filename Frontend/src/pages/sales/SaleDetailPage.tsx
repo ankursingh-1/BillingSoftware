@@ -473,6 +473,44 @@ function SaleDetailPage() {
                 )}
             </section>
 
+            {(sale.warranties?.length ?? 0) > 0 && (
+                <section className="data-card mb-4">
+                    <div className="p-3 border-bottom">
+                        <h5 className="mb-0">Warranty registrations</h5>
+                    </div>
+                    <div className="table-responsive">
+                        <table className="table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Number</th>
+                                    <th>Product</th>
+                                    <th>Serial</th>
+                                    <th>Duration</th>
+                                    <th>Start</th>
+                                    <th>End</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sale.warranties.map((item) => (
+                                    <tr key={item.warrantyNumber}>
+                                        <td>{item.warrantyNumber}</td>
+                                        <td>{item.productName}</td>
+                                        <td>{item.serialNumber ?? "—"}</td>
+                                        <td>{item.duration}</td>
+                                        <td>{formatDate(item.startDate)}</td>
+                                        <td>{formatDate(item.endDate)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="p-3 small text-muted">
+                        These dates were stored with the sale. Changing the
+                        product default later does not rewrite them.
+                    </div>
+                </section>
+            )}
+
             {sale.returns.length > 0 && (
                 <section className="data-card no-print mb-4">
                     <div className="p-3 border-bottom">

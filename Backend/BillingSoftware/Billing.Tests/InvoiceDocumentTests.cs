@@ -1,5 +1,6 @@
 using Billing.API.Services;
 using Billing.Application.DTOs.Sales;
+using Billing.Application.DTOs.Warranty;
 using Billing.Domain.Enums;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
@@ -203,6 +204,25 @@ public class InvoiceDocumentTests
 
         foreach (var format in Enum.GetValues<InvoiceFormat>())
             Assert.NotEmpty(Invoices.Generate(sale, format, 58, null));
+    }
+
+    [Fact]
+    public void Invoice_with_warranty_registrations_renders()
+    {
+        var sale = Sample();
+        sale.Warranties.Add(new WarrantyInvoiceLineDto
+        {
+            SaleItemId = 1,
+            WarrantyNumber = "WRN-2627-000001",
+            ProductName = "Demo laptop",
+            SerialNumber = "SN-1",
+            Duration = "1 year",
+            StartDate = sale.SaleDate,
+            EndDate = sale.SaleDate.AddYears(1)
+        });
+
+        foreach (var format in Enum.GetValues<InvoiceFormat>())
+            Assert.NotEmpty(Invoices.Generate(sale, format, 80, null));
     }
 
     [Fact]

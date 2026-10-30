@@ -5,16 +5,21 @@ import { toast } from "react-toastify";
 import axios from "axios";
 
 import { login } from "../../services/auth/authService";
+import { isStoredTokenExpired } from "../../utils/session";
 
 function LoginPage() {
     const navigate = useNavigate();
     const existing = localStorage.getItem("token");
 
+    if (existing && isStoredTokenExpired()) {
+        localStorage.removeItem("token");
+    }
+
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
 
-    if (existing) {
+    if (existing && !isStoredTokenExpired()) {
         return <Navigate to="/dashboard" replace />;
     }
 

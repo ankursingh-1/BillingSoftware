@@ -48,7 +48,8 @@ namespace Billing.API.Services
                 StockTransactionType.AdjustmentOut or
                 StockTransactionType.Damaged or
                 StockTransactionType.Expired or
-                StockTransactionType.Lost => -quantity,
+                StockTransactionType.Lost or
+                StockTransactionType.WarrantyReplacement => -quantity,
 
                 _ => throw new BusinessException("Invalid stock transaction type.")
             };

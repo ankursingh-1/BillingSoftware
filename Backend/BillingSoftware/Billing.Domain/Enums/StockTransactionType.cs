@@ -18,6 +18,11 @@ namespace Billing.Domain.Enums
         Expired = 8,
         Lost = 9,
         /// <summary>Manual correction that reduces stock (the opposite of <see cref="Adjustment"/>).</summary>
-        AdjustmentOut = 10
+        AdjustmentOut = 10,
+
+        /// <summary>
+        /// Free warranty replacement leaving good stock. Never a paid sale.
+        /// </summary>
+        WarrantyReplacement = 11
     }
 }

@@ -46,7 +46,11 @@ Check 'import wrote only valid rows' ($imported.Json.imported -eq $imported.Json
 Check 'invalid rows were not imported' ($imported.Json.invalid -ge 1)
 
 $retry = Api-Upload '/Products/import' $sample 'product-import-test.xlsx' 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-Check 'retry skips already imported SKUs' ($retry.Status -eq 200 -and $retry.Json.imported -eq 0)
+Check 'retry does not double-add' (
+    $retry.Status -eq 200 -and (
+        $retry.Json.replayed -eq $true -or $retry.Json.imported -eq 0
+    )
+)
 
 $errors = Api-Upload '/Products/import/error-report' $sample 'product-import-test.xlsx' 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 Check 'error report is xlsx' ($errors.Status -eq 200)

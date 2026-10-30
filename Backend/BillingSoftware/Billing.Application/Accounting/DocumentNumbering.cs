@@ -17,6 +17,8 @@ public static class DocumentNumbering
     public const string ReceiptPrefix = "RCT";         // payment receipt
     public const string SalesReturnPrefix = "CN";      // credit note
     public const string PurchaseReturnPrefix = "DN";   // debit note
+    public const string WarrantyPrefix = "WRN";
+    public const string ClaimPrefix = "CLM";
 
     private static readonly Regex PrefixFormat = new("^[A-Z0-9]{1,4}$", RegexOptions.Compiled);
 
@@ -32,6 +34,10 @@ public static class DocumentNumbering
 
     /// <summary>Series key for sales invoices (one counter per financial year, independent of the prefix text).</summary>
     public static string InvoiceSeriesKey(DateTime date) => SeriesKey("INV", date);
+
+    public static string WarrantySeriesKey(DateTime date) => SeriesKey(WarrantyPrefix, date);
+
+    public static string ClaimSeriesKey(DateTime date) => SeriesKey(ClaimPrefix, date);
 
     public static string Format(string prefix, DateTime date, int sequence)
     {

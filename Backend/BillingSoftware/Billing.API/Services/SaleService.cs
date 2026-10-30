@@ -2,9 +2,13 @@ using Billing.API.Models;
 using Billing.Application.Accounting;
 using Billing.Application.Documents;
 using Billing.Application.DTOs.Sales;
+using Billing.Application.DTOs.Warranty;
 using Billing.Application.Interfaces;
+using Billing.Application.Retail;
+using Billing.Application.Warranty;
 using Billing.Domain.Entities;
 using Billing.Domain.Enums;
+using Billing.Persistence;
 using Billing.Persistence.Context;
 using Billing.Shared.Exceptions;
 using Microsoft.Data.SqlClient;
@@ -86,13 +90,7 @@ public class SaleService
         // and deducted from stock exactly once.
         var lines = request.Items
             .GroupBy(i => i.ProductId)
-            .Select(g => new SaleLine(
-                g.Key,
-                g.Sum(i => i.Quantity),
-                g.Where(i => i.UnitPrice.HasValue)
-                 .Select(i => i.UnitPrice!.Value)
-                 .Distinct()
-                 .ToList()))
+            .Select(g => MapLine(g))
             .ToList();
 
         var payments = request.Payments ?? new List<CreateSalePaymentRequest>();
@@ -232,6 +230,7 @@ public class SaleService
         };
 
         var taxLines = new List<(decimal Taxable, TaxBreakup Tax)>();
+        var costs = await ResolveCostsAsync(products);
 
         foreach (var line in lines)
         {
@@ -259,8 +258,7 @@ public class SaleService
                 SgstAmount = breakup.Sgst,
                 IgstAmount = breakup.Igst,
                 TaxAmount = breakup.Total,
-                // Catalogue cost at the time of sale. Unknown (null) when no cost is set.
-                CostPrice = product.PurchasePrice > 0 ? product.PurchasePrice : null
+                CostPrice = costs[product.Id]
             });
         }
 
@@ -324,6 +322,8 @@ public class SaleService
         }
 
         await _context.SaveChangesAsync();
+
+        await RegisterWarrantiesAsync(sale, customer, company, products, lines);
 
         _audit.Record(
             "Sale.Create", "Sale", sale.Id.ToString(),
@@ -507,10 +507,15 @@ public class SaleService
             .AsNoTracking()
             .Include(x => x.Customer)
             .Include(x => x.SaleItems).ThenInclude(i => i.Product)
-            .Include(x => x.Payments)
             .AsSplitQuery()
             .FirstOrDefaultAsync(x => x.Id == id)
             ?? throw BusinessException.NotFound("Sale not found.");
+
+        var payments = await _context.Payments
+            .AsNoTracking()
+            .Where(p => p.SaleId == id)
+            .OrderBy(p => p.PaymentDate).ThenBy(p => p.Id)
+            .ToListAsync();
 
         var returns = await _context.SalesReturns
             .AsNoTracking()
@@ -527,7 +532,7 @@ public class SaleService
         var company = await _context.Companies.AsNoTracking().OrderBy(c => c.Id).FirstOrDefaultAsync();
         var snapshot = InvoiceSnapshot.TryParse(sale.DocumentSnapshot);
 
-        var paid = sale.Payments.Where(p => !p.IsVoided).Sum(p => p.Amount);
+        var paid = payments.Where(p => !p.IsVoided).Sum(p => p.Amount);
         var returnedAmount = returns.Sum(r => r.TotalAmount);
         var refunded = returns.Sum(r => r.RefundAmount);
         var summary = PaymentCalculator.Summarise(
@@ -589,8 +594,7 @@ public class SaleService
                     };
                 })
                 .ToList(),
-            Payments = sale.Payments
-                .OrderBy(p => p.PaymentDate).ThenBy(p => p.Id)
+            Payments = payments
                 .Select(p => new SalePaymentDto
                 {
                     Id = p.Id,
@@ -615,7 +619,8 @@ public class SaleService
                     TotalAmount = r.TotalAmount,
                     RefundAmount = r.RefundAmount
                 })
-                .ToList()
+                .ToList(),
+            Warranties = await LoadWarrantyLinesAsync(sale.Id)
         };
     }
 
@@ -919,6 +924,19 @@ public class SaleService
                     : $"The payment ({request.Amount:0.00}) is more than the outstanding balance ({summary.Outstanding:0.00}).");
         }
 
+        var replay = sale.Payments.FirstOrDefault(p =>
+            !p.IsVoided
+            && p.Amount == request.Amount
+            && p.Method == request.Method
+            && p.CreatedBy == _user.Email
+            && p.CreatedOn >= DateTime.UtcNow.AddSeconds(-15));
+
+        if (replay != null)
+        {
+            await transaction.RollbackAsync();
+            return await GetByIdAsync(saleId);
+        }
+
         var payment = new Payment
         {
             SaleId = saleId,
@@ -996,8 +1014,221 @@ public class SaleService
 
     private Task LockSaleAsync(int saleId) => SqlTransactionHelper.LockSaleAsync(_context, saleId);
 
+    private async Task<List<WarrantyInvoiceLineDto>> LoadWarrantyLinesAsync(int saleId)
+    {
+        List<Domain.Entities.Warranty> rows;
+        try
+        {
+            rows = await _context.Warranties
+                .AsNoTracking()
+                .Where(w => w.SaleId == saleId && !w.IsVoided)
+                .OrderBy(w => w.Id)
+                .ToListAsync();
+        }
+        catch (Exception ex) when (SqlServerErrors.IsMissingObject(ex))
+        {
+            return [];
+        }
+
+        return rows.Select(w => new WarrantyInvoiceLineDto
+        {
+            SaleItemId = w.SaleItemId,
+            WarrantyNumber = w.WarrantyNumber,
+            ProductName = w.ProductName,
+            SerialNumber = w.SerialNumber,
+            Duration = WarrantyDates.FormatDuration(w.DurationValue, w.DurationUnit),
+            StartDate = w.StartDate,
+            EndDate = w.EndDate
+        }).ToList();
+    }
+
+    private static SaleLine MapLine(IGrouping<int, CreateSaleItemRequest> g)
+    {
+        var flags = g.Select(i => i.RegisterWarranty).Where(x => x.HasValue).Select(x => x!.Value).Distinct().ToList();
+        if (flags.Count > 1)
+            throw new BusinessException("The same product cannot both register and skip warranty on one invoice.");
+
+        var durations = g
+            .Where(i => i.WarrantyDurationValue.HasValue)
+            .Select(i => (i.WarrantyDurationValue, Unit: (i.WarrantyDurationUnit ?? "").Trim().ToLowerInvariant()))
+            .Distinct()
+            .ToList();
+        if (durations.Count > 1)
+            throw new BusinessException("Use one warranty duration per product on an invoice.");
+
+        var serials = g
+            .SelectMany(i => i.SerialNumbers ?? Enumerable.Empty<string>())
+            .Select(s => s.Trim())
+            .Where(s => s.Length > 0)
+            .ToList();
+
+        var notes = g.Select(i => i.WarrantyNotes).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n));
+        var start = g.Select(i => i.WarrantyStartDate).FirstOrDefault(d => d.HasValue);
+
+        return new SaleLine(
+            g.Key,
+            g.Sum(i => i.Quantity),
+            g.Where(i => i.UnitPrice.HasValue).Select(i => i.UnitPrice!.Value).Distinct().ToList(),
+            flags.Count == 1 ? flags[0] : null,
+            durations.Count == 1 ? durations[0].WarrantyDurationValue : null,
+            durations.Count == 1 ? g.First(i => i.WarrantyDurationValue.HasValue).WarrantyDurationUnit : null,
+            start,
+            serials,
+            notes);
+    }
+
+    private async Task RegisterWarrantiesAsync(
+        Sale sale,
+        Customer customer,
+        Company company,
+        Dictionary<int, Product> products,
+        List<SaleLine> lines)
+    {
+        var walkIn = WalkInCustomer.IsWalkIn(customer.Name, customer.Mobile);
+        var grocery = company.ShopType == ShopType.Grocery;
+
+        foreach (var line in lines)
+        {
+            var product = products[line.ProductId];
+            var hasDefault = product.WarrantyDurationValue is > 0 && product.WarrantyDurationUnit != null;
+            var register = line.RegisterWarranty ?? (hasDefault && !grocery && !walkIn);
+
+            if (!register)
+                continue;
+
+            if (walkIn)
+                throw new BusinessException(
+                    $"Select a customer with a real mobile number to register warranty for '{product.Name}'. Walk-in checkout cannot hold a warranty.");
+
+            var value = line.WarrantyDurationValue ?? product.WarrantyDurationValue;
+            var unitText = line.WarrantyDurationUnit ?? product.WarrantyDurationUnit?.ToString();
+
+            if (value is null or <= 0 || string.IsNullOrWhiteSpace(unitText)
+                || !Enum.TryParse<WarrantyDurationUnit>(unitText, true, out var unit)
+                || !Enum.IsDefined(unit))
+            {
+                throw new BusinessException(
+                    $"Set a warranty duration (Days, Months or Years) for '{product.Name}', or turn warranty off for this line.");
+            }
+
+            var start = (line.WarrantyStartDate ?? sale.SaleDate).Date;
+            if (start > DateTime.Today)
+                throw new BusinessException("Warranty start date cannot be in the future.");
+            if (start < sale.SaleDate.Date.AddYears(-1))
+                throw new BusinessException("Warranty start date is too far before the sale date.");
+
+            var end = WarrantyDates.EndDate(start, value.Value, unit);
+
+            var serials = line.SerialNumbers
+                .Select(s => s.Trim())
+                .Where(s => s.Length > 0)
+                .ToList();
+
+            if (serials.Count != serials.Distinct(StringComparer.OrdinalIgnoreCase).Count())
+                throw new BusinessException($"Duplicate serial numbers on '{product.Name}'.");
+
+            if (product.RequiresSerialNumber && serials.Count != line.Quantity)
+                throw new BusinessException(
+                    $"'{product.Name}' requires one serial number per unit ({line.Quantity}).");
+
+            if (serials.Count > 0 && serials.Count != line.Quantity)
+                throw new BusinessException(
+                    $"Enter one serial number per unit for '{product.Name}' ({line.Quantity}), or none.");
+
+            foreach (var serial in serials)
+            {
+                var taken = await _context.Warranties.AnyAsync(w =>
+                    w.SerialNumber == serial && !w.IsVoided);
+                if (taken)
+                    throw BusinessException.Conflict($"Serial number '{serial}' is already registered.");
+            }
+
+            var saleItem = sale.SaleItems.First(i => i.ProductId == line.ProductId);
+            var units = serials.Count > 0
+                ? serials.Select(s => (string?)s).ToList()
+                : new List<string?> { null };
+
+            foreach (var serial in units)
+            {
+                var sequence = await _numbers.NextAsync(DocumentNumbering.WarrantySeriesKey(sale.SaleDate));
+                _context.Warranties.Add(new Domain.Entities.Warranty
+                {
+                    WarrantyNumber = DocumentNumbering.Format(
+                        DocumentNumbering.WarrantyPrefix, sale.SaleDate, sequence),
+                    SaleId = sale.Id,
+                    SaleItemId = saleItem.Id,
+                    ProductId = product.Id,
+                    CustomerId = customer.Id,
+                    InvoiceNumber = sale.InvoiceNumber,
+                    ProductName = product.Name,
+                    ProductSku = product.SKU,
+                    CustomerName = customer.Name,
+                    CustomerMobile = customer.Mobile,
+                    SerialNumber = serial,
+                    DurationValue = value.Value,
+                    DurationUnit = unit,
+                    StartDate = start,
+                    EndDate = end,
+                    Notes = string.IsNullOrWhiteSpace(line.WarrantyNotes) ? null : line.WarrantyNotes.Trim(),
+                    CreatedOn = DateTime.UtcNow,
+                    CreatedBy = _user.Email
+                });
+            }
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Cost of the goods being sold, captured before stock is reduced.
+    /// Catalogue purchase price first (updated on each purchase / opening entry);
+    /// if that is unset, the last purchase line for the product. Zero is unknown.
+    /// </summary>
+    private async Task<Dictionary<int, decimal?>> ResolveCostsAsync(Dictionary<int, Product> products)
+    {
+        var result = new Dictionary<int, decimal?>();
+        var missing = new List<int>();
+
+        foreach (var product in products.Values)
+        {
+            var snap = CostSnapshot.FromCatalogue(product.PurchasePrice);
+            if (snap.HasValue)
+                result[product.Id] = snap;
+            else
+                missing.Add(product.Id);
+        }
+
+        if (missing.Count == 0)
+            return result;
+
+        var rows = await _context.PurchaseItems
+            .AsNoTracking()
+            .Where(i => missing.Contains(i.ProductId) && i.PurchasePrice > 0)
+            .Select(i => new { i.ProductId, i.PurchasePrice, i.Purchase.PurchaseDate, i.Id })
+            .ToListAsync();
+
+        foreach (var id in missing)
+        {
+            var last = rows
+                .Where(r => r.ProductId == id)
+                .OrderByDescending(r => r.PurchaseDate)
+                .ThenByDescending(r => r.Id)
+                .FirstOrDefault();
+
+            result[id] = last is null ? null : GstCalculator.Round(last.PurchasePrice);
+        }
+
+        return result;
+    }
+
     private sealed record SaleLine(
         int ProductId,
         int Quantity,
-        List<decimal> EchoedPrices);
+        List<decimal> EchoedPrices,
+        bool? RegisterWarranty,
+        int? WarrantyDurationValue,
+        string? WarrantyDurationUnit,
+        DateTime? WarrantyStartDate,
+        List<string> SerialNumbers,
+        string? WarrantyNotes);
 }

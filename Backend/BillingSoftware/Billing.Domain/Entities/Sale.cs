@@ -63,4 +63,7 @@ public class Sale : AuditableEntity
 
     public ICollection<Payment> Payments { get; set; }
         = new List<Payment>();
+
+    public ICollection<Warranty> Warranties { get; set; }
+        = new List<Warranty>();
 }

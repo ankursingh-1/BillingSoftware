@@ -1,5 +1,7 @@
 export type InvoiceFormat = "A4" | "Compact" | "Thermal";
 
+export type ShopType = "GeneralRetail" | "Electronics" | "Grocery";
+
 export interface Company {
     id: number;
     companyName: string;
@@ -30,6 +32,7 @@ export interface Company {
     showTerms: boolean;
     showFooter: boolean;
     isActive: boolean;
+    shopType: ShopType;
 }
 
 /** Body for POST /Company. Empty optional fields are sent as null. */
@@ -61,4 +64,5 @@ export interface SaveCompanyRequest {
     showTerms: boolean;
     showFooter: boolean;
     isActive: boolean;
+    shopType: ShopType;
 }

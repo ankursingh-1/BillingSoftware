@@ -26,7 +26,7 @@ const LOAD_ERROR = "Unable to load sales.";
 const STATUS_OPTIONS: { value: PaymentStatus | ""; label: string }[] = [
     { value: "", label: "All payments" },
     { value: "Unpaid", label: "Unpaid" },
-    { value: "Partial", label: "Partial" },
+    { value: "Partial", label: "Partially Paid" },
     { value: "Paid", label: "Paid" },
     { value: "Settled", label: "Settled (after returns)" },
     { value: "NotRecorded", label: "Not recorded (older)" },

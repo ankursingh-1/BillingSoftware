@@ -15,6 +15,8 @@ import {
     getLowStockProducts,
     getTopProducts,
 } from "../../services/dashboard/dashboardService";
+import { getExpiringWarranties } from "../../services/warranty/warrantyService";
+import { getApiErrorMessage } from "../../utils/apiError";
 
 import type {
     DashboardSummary,
@@ -23,6 +25,7 @@ import type {
     LowStockProduct,
     TopProduct,
 } from "../../interfaces/dashboard/dashboard";
+import type { WarrantyListItem } from "../../interfaces/warranty/warranty";
 import { isAdmin } from "../../utils/session";
 
 import "../../styles/dashboard.css";
@@ -43,6 +46,18 @@ function DashboardPage() {
 
     const [topProducts, setTopProducts] =
         useState<TopProduct[]>([]);
+    const [expiring, setExpiring] = useState<WarrantyListItem[]>([]);
+    const [warrantyError, setWarrantyError] = useState<string | null>(null);
+    const [recentSalesError, setRecentSalesError] = useState<string | null>(
+        null
+    );
+    const [recentPurchasesError, setRecentPurchasesError] = useState<
+        string | null
+    >(null);
+    const [lowStockError, setLowStockError] = useState<string | null>(null);
+    const [topProductsError, setTopProductsError] = useState<string | null>(
+        null
+    );
 
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -50,39 +65,97 @@ function DashboardPage() {
     const [refreshToken, setRefreshToken] = useState(0);
 
     const loadDashboard = useCallback(async () => {
-        try {
-            setRefreshing(true);
+        setRefreshing(true);
 
-            const [
-                summaryData,
-                recentSalesData,
-                recentPurchasesData,
-                lowStockData,
-                topProductsData,
-            ] = await Promise.all([
-                getDashboardSummary(),
-                getRecentSales(),
-                getRecentPurchases(),
-                getLowStockProducts(),
-                getTopProducts(),
-            ]);
+        const load = async <T,>(
+            fn: () => Promise<T>,
+            fallback: string
+        ): Promise<{ ok: true; data: T } | { ok: false; message: string }> => {
+            try {
+                return { ok: true, data: await fn() };
+            } catch (error) {
+                return {
+                    ok: false,
+                    message: getApiErrorMessage(error, fallback),
+                };
+            }
+        };
 
-            setSummary(summaryData);
-            setRecentSales(recentSalesData);
-            setRecentPurchases(recentPurchasesData);
-            setLowStock(lowStockData);
-            setTopProducts(topProductsData);
+        const summaryResult = await load(
+            getDashboardSummary,
+            "Unable to load dashboard data."
+        );
+
+        if (summaryResult.ok) {
+            setSummary(summaryResult.data);
             setLoadFailed(false);
-            setRefreshToken((token) => token + 1);
-        } catch {
+        } else {
             setLoadFailed(true);
-            toast.error(
-                "Unable to load dashboard data."
-            );
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
+            toast.error(summaryResult.message);
         }
+
+        const [
+            recentSalesResult,
+            recentPurchasesResult,
+            lowStockResult,
+            topProductsResult,
+            expiringResult,
+        ] = await Promise.all([
+            load(getRecentSales, "Unable to load recent sales."),
+            load(getRecentPurchases, "Unable to load recent purchases."),
+            load(getLowStockProducts, "Unable to load low-stock products."),
+            load(getTopProducts, "Unable to load top products."),
+            load(getExpiringWarranties, "Unable to load expiring warranties."),
+        ]);
+
+        if (recentSalesResult.ok) {
+            setRecentSales(recentSalesResult.data);
+            setRecentSalesError(null);
+        } else {
+            setRecentSales([]);
+            setRecentSalesError(recentSalesResult.message);
+        }
+
+        if (recentPurchasesResult.ok) {
+            setRecentPurchases(recentPurchasesResult.data);
+            setRecentPurchasesError(null);
+        } else {
+            setRecentPurchases([]);
+            setRecentPurchasesError(recentPurchasesResult.message);
+        }
+
+        if (lowStockResult.ok) {
+            setLowStock(lowStockResult.data);
+            setLowStockError(null);
+        } else {
+            setLowStock([]);
+            setLowStockError(lowStockResult.message);
+        }
+
+        if (topProductsResult.ok) {
+            setTopProducts(topProductsResult.data);
+            setTopProductsError(null);
+        } else {
+            setTopProducts([]);
+            setTopProductsError(topProductsResult.message);
+        }
+
+        if (expiringResult.ok) {
+            setExpiring(expiringResult.data);
+            setWarrantyError(
+                summaryResult.ok &&
+                    summaryResult.data.expiringWarrantiesAvailable === false
+                    ? "Warranty figures are unavailable on this database."
+                    : null
+            );
+        } else {
+            setExpiring([]);
+            setWarrantyError(expiringResult.message);
+        }
+
+        setRefreshToken((token) => token + 1);
+        setLoading(false);
+        setRefreshing(false);
     }, []);
 
     useEffect(() => {
@@ -147,9 +220,11 @@ function DashboardPage() {
 
                 <StatCard
                     title="Today's Sales"
-                    value={`₹${(
-                        summary?.todaySales ?? 0
-                    ).toFixed(2)}`}
+                    value={
+                        summary
+                            ? `₹${summary.todaySales.toFixed(2)}`
+                            : "—"
+                    }
                     icon="bi-currency-rupee"
                     color="#2563eb"
                     to="/sales"
@@ -157,9 +232,11 @@ function DashboardPage() {
 
                 <StatCard
                     title="Today's Purchase"
-                    value={`₹${(
-                        summary?.todayPurchase ?? 0
-                    ).toFixed(2)}`}
+                    value={
+                        summary
+                            ? `₹${summary.todayPurchase.toFixed(2)}`
+                            : "—"
+                    }
                     icon="bi-cart-check"
                     color="#16a34a"
                     to={admin ? "/purchases" : undefined}
@@ -167,9 +244,9 @@ function DashboardPage() {
 
                 <StatCard
                     title="Products"
-                    value={String(
-                        summary?.totalProducts ?? 0
-                    )}
+                    value={
+                        summary ? String(summary.totalProducts) : "—"
+                    }
                     icon="bi-box-seam"
                     color="#ea580c"
                     to="/products"
@@ -177,22 +254,49 @@ function DashboardPage() {
 
                 <StatCard
                     title={
-                        summary?.grossProfitComplete
+                        !summary
                             ? "Gross profit (this month)"
-                            : "Gross profit (incomplete)"
+                            : summary.grossProfitComplete
+                              ? "Gross profit (this month)"
+                              : summary.grossProfit !== null
+                                ? "Known gross profit (this month)"
+                                : "Gross profit (this month)"
                     }
                     value={
-                        summary?.grossProfitComplete &&
-                        summary.grossProfit !== null
-                            ? `₹${summary.grossProfit.toFixed(2)}`
-                            : "Unavailable"
+                        !summary
+                            ? "—"
+                            : summary.grossProfit !== null
+                              ? `₹${summary.grossProfit.toFixed(2)}`
+                              : "Unavailable"
                     }
                     icon="bi-graph-up-arrow"
                     color="#9333ea"
                     to={admin ? "/reports" : undefined}
                 />
 
+                <StatCard
+                    title="Expiring warranties"
+                    value={
+                        summary?.expiringWarrantiesAvailable === false ||
+                        warrantyError
+                            ? "Unavailable"
+                            : String(
+                                  summary?.expiringWarranties ??
+                                      expiring.length
+                              )
+                    }
+                    icon="bi-shield-exclamation"
+                    color="#ca8a04"
+                    to="/warranties"
+                />
+
             </div>
+
+            {summary?.grossProfitLimitation && (
+                <div className="alert alert-warning" role="status">
+                    {summary.grossProfitLimitation}
+                </div>
+            )}
 
             <div className="row mt-4">
 
@@ -203,9 +307,41 @@ function DashboardPage() {
                 </div>
 
                 <div className="col-lg-4 mb-4">
+                    {lowStockError && (
+                        <div className="alert alert-warning" role="status">
+                            {lowStockError}
+                        </div>
+                    )}
                     <LowStock
                         products={lowStock}
                     />
+                    {warrantyError && (
+                        <div className="alert alert-warning mt-4" role="status">
+                            {warrantyError}
+                        </div>
+                    )}
+                    {expiring.length > 0 && (
+                        <div className="dashboard-widget mt-4">
+                            <div className="widget-header">
+                                <h5>Warranties expiring soon</h5>
+                            </div>
+                            <ul className="list-group list-group-flush">
+                                {expiring.map((item) => (
+                                    <li
+                                        key={item.id}
+                                        className="list-group-item d-flex justify-content-between"
+                                    >
+                                        <Link to={`/warranties/${item.id}`}>
+                                            {item.warrantyNumber}
+                                        </Link>
+                                        <span className="small text-muted">
+                                            {item.daysRemaining} days
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </div>
 
             </div>
@@ -213,12 +349,22 @@ function DashboardPage() {
             <div className="row">
 
                 <div className="col-lg-6 mb-4">
+                    {recentSalesError && (
+                        <div className="alert alert-warning" role="status">
+                            {recentSalesError}
+                        </div>
+                    )}
                     <RecentSales
                         sales={recentSales}
                     />
                 </div>
 
                 <div className="col-lg-6 mb-4">
+                    {recentPurchasesError && (
+                        <div className="alert alert-warning" role="status">
+                            {recentPurchasesError}
+                        </div>
+                    )}
                     <RecentPurchases
                         purchases={recentPurchases}
                     />
@@ -249,7 +395,16 @@ function DashboardPage() {
 
                                 <tbody>
 
-                                    {topProducts.length === 0 ? (
+                                    {topProductsError ? (
+                                        <tr>
+                                            <td
+                                                colSpan={3}
+                                                className="text-center text-warning py-4"
+                                            >
+                                                {topProductsError}
+                                            </td>
+                                        </tr>
+                                    ) : topProducts.length === 0 ? (
                                         <tr>
                                             <td
                                                 colSpan={3}
@@ -310,11 +465,9 @@ function DashboardPage() {
                             <Link to="/sales">
                                 <span>Total Sales</span>
                                 <strong>
-                                    ₹
-                                    {(
-                                        summary?.totalSales ??
-                                        0
-                                    ).toFixed(2)}
+                                    {summary
+                                        ? `₹${summary.totalSales.toFixed(2)}`
+                                        : "—"}
                                 </strong>
                             </Link>
 
@@ -322,22 +475,18 @@ function DashboardPage() {
                             <Link to="/purchases">
                                 <span>Total Purchase</span>
                                 <strong>
-                                    ₹
-                                    {(
-                                        summary?.totalPurchase ??
-                                        0
-                                    ).toFixed(2)}
+                                    {summary
+                                        ? `₹${summary.totalPurchase.toFixed(2)}`
+                                        : "—"}
                                 </strong>
                             </Link>
                             ) : (
                             <div>
                                 <span>Total Purchase</span>
                                 <strong>
-                                    ₹
-                                    {(
-                                        summary?.totalPurchase ??
-                                        0
-                                    ).toFixed(2)}
+                                    {summary
+                                        ? `₹${summary.totalPurchase.toFixed(2)}`
+                                        : "—"}
                                 </strong>
                             </div>
                             )}
@@ -345,32 +494,45 @@ function DashboardPage() {
                             <Link to="/customers">
                                 <span>Customers</span>
                                 <strong>
-                                    {summary?.totalCustomers ??
-                                        0}
+                                    {summary
+                                        ? summary.totalCustomers
+                                        : "—"}
                                 </strong>
                             </Link>
 
                             <Link to="/suppliers">
                                 <span>Suppliers</span>
                                 <strong>
-                                    {summary?.totalSuppliers ??
-                                        0}
+                                    {summary
+                                        ? summary.totalSuppliers
+                                        : "—"}
                                 </strong>
                             </Link>
 
                             <Link to="/inventory">
                                 <span>Low Stock</span>
                                 <strong>
-                                    {summary?.lowStockProducts ??
-                                        0}
+                                    {summary
+                                        ? summary.lowStockProducts
+                                        : "—"}
                                 </strong>
                             </Link>
 
                             <Link to="/inventory">
                                 <span>Out of Stock</span>
                                 <strong>
-                                    {summary?.outOfStockProducts ??
-                                        0}
+                                    {summary
+                                        ? summary.outOfStockProducts
+                                        : "—"}
+                                </strong>
+                            </Link>
+
+                            <Link to="/sales">
+                                <span>Outstanding collections</span>
+                                <strong>
+                                    {summary
+                                        ? `₹${(summary.outstandingCollections ?? 0).toFixed(2)}`
+                                        : "—"}
                                 </strong>
                             </Link>
 

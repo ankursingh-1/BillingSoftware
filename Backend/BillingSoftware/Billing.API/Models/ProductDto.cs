@@ -23,8 +23,8 @@ public class ProductDto
     public decimal SellingPrice { get; set; }
 
     /// <summary>
-    /// Opening stock when creating a product. Ignored on update:
-    /// stock only changes through purchases, sales, returns and stock adjustments.
+    /// Opening stock when creating a product. On update, the desired on-hand
+    /// quantity; a difference from current stock is posted through the ledger.
     /// </summary>
     [Range(0, int.MaxValue, ErrorMessage = "Stock cannot be negative.")]
     public int Stock { get; set; }
@@ -33,6 +33,18 @@ public class ProductDto
     [RegularExpression(@"^([0-9]{4}|[0-9]{6}|[0-9]{8})?$",
         ErrorMessage = "HSN/SAC code must be 4, 6 or 8 digits.")]
     public string? HsnCode { get; set; }
+
+    [StringLength(80, ErrorMessage = "Barcode cannot exceed 80 characters.")]
+    public string? Barcode { get; set; }
+
+    [Range(1, 3650, ErrorMessage = "Warranty duration must be between 1 and 3650.")]
+    public int? WarrantyDurationValue { get; set; }
+
+    /// <summary>Days, Months or Years. Required when a duration value is set.</summary>
+    [StringLength(20)]
+    public string? WarrantyDurationUnit { get; set; }
+
+    public bool RequiresSerialNumber { get; set; }
 
     public int? CategoryId { get; set; }
     public string? CategoryName { get; set; }

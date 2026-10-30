@@ -116,15 +116,16 @@ public class ExcelExportService : IExcelExportService
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Profit Report");
         worksheet.Cell(1, 1).Value = "Profit Report";
-        worksheet.Range(1, 1, 1, 5).Merge();
+        worksheet.Range(1, 1, 1, 6).Merge();
         worksheet.Cell(1, 1).Style.Font.Bold = true;
         worksheet.Cell(1, 1).Style.Font.FontSize = 16;
         worksheet.Cell(3, 1).Value = "Invoice";
         worksheet.Cell(3, 2).Value = "Sale Date";
-        worksheet.Cell(3, 3).Value = "Sale Amount";
+        worksheet.Cell(3, 3).Value = "Net sales (ex-tax)";
         worksheet.Cell(3, 4).Value = "Cost of goods sold";
         worksheet.Cell(3, 5).Value = "Profit";
-        worksheet.Range(3, 1, 3, 5).Style.Font.Bold = true;
+        worksheet.Cell(3, 6).Value = "Cost data";
+        worksheet.Range(3, 1, 3, 6).Style.Font.Bold = true;
         int row = 4;
         foreach (var item in report.Items)
         {
@@ -140,7 +141,7 @@ public class ExcelExportService : IExcelExportService
             }
             else
             {
-                worksheet.Cell(row, 4).Value = "incomplete";
+                worksheet.Cell(row, 4).Value = "Cost unavailable";
             }
 
             if (item.Profit.HasValue)
@@ -150,20 +151,26 @@ public class ExcelExportService : IExcelExportService
             }
             else
             {
-                worksheet.Cell(row, 5).Value = "incomplete";
+                worksheet.Cell(row, 5).Value = "Cost unavailable";
             }
 
+            Text(worksheet.Cell(row, 6), item.CostStatus);
             row++;
         }
-        worksheet.Cell(row + 1, 4).Value = report.CostComplete ? "Gross Profit" : "Gross profit unavailable";
-        worksheet.Cell(row + 1, 4).Style.Font.Bold = true;
+        worksheet.Cell(row + 1, 1).Value = $"Net sales {report.TotalSales:0.00}; complete invoices {report.CompleteInvoices}; incomplete {report.IncompleteInvoices}; coverage {report.CoveragePercent:0.##}%";
+        worksheet.Cell(row + 2, 4).Value = report.CostComplete ? "Gross profit" : "Known gross profit";
+        worksheet.Cell(row + 2, 4).Style.Font.Bold = true;
         if (report.GrossProfit.HasValue)
         {
-            worksheet.Cell(row + 1, 5).Value = report.GrossProfit.Value;
-            worksheet.Cell(row + 1, 5).Style.NumberFormat.Format = "#,##0.00";
+            worksheet.Cell(row + 2, 5).Value = report.GrossProfit.Value;
+            worksheet.Cell(row + 2, 5).Style.NumberFormat.Format = "#,##0.00";
+        }
+        else
+        {
+            worksheet.Cell(row + 2, 5).Value = "Unavailable";
         }
         if (!string.IsNullOrEmpty(report.Limitation))
-            Text(worksheet.Cell(row + 3, 1), report.Limitation);
+            Text(worksheet.Cell(row + 4, 1), report.Limitation);
         worksheet.Columns().AdjustToContents();
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);

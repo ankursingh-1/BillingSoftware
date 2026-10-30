@@ -68,6 +68,7 @@ namespace Billing.Application.DTOs.Sales
         public List<SaleDetailItemDto> Items { get; set; } = new();
         public List<SalePaymentDto> Payments { get; set; } = new();
         public List<SaleReturnSummaryDto> Returns { get; set; } = new();
+        public List<Billing.Application.DTOs.Warranty.WarrantyInvoiceLineDto> Warranties { get; set; } = new();
     }
 
     public class SaleCustomerDto

@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using Billing.API.Extensions;
 using Billing.API.Services;
 using Billing.API.Services.ProductImport;
@@ -7,6 +8,7 @@ using Billing.Infrastructure.Security;
 using Billing.Persistence.Context;
 using Billing.Persistence.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -65,6 +67,7 @@ builder.Services.AddScoped<CustomerService>();
 builder.Services.AddScoped<SupplierService>();
 builder.Services.AddScoped<PurchaseService>();
 builder.Services.AddScoped<SaleService>();
+builder.Services.AddScoped<GrossProfitService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<CategoryService>();
@@ -86,6 +89,7 @@ builder.Services.AddSingleton(new Billing.Application.Inventory.StockAlertPolicy
 builder.Services.AddScoped<PurchaseReturnService>();
 builder.Services.AddScoped<SalesReturnService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
+builder.Services.AddScoped<IWarrantyService, WarrantyService>();
 builder.Services.AddScoped<IAppSettingService, AppSettingService>();
 
 builder.Services.AddHttpContextAccessor();
@@ -102,6 +106,7 @@ builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -110,24 +115,59 @@ builder.Services
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwt["Issuer"],
             ValidAudience = jwt["Audience"],
+            ClockSkew = TimeSpan.FromSeconds(30),
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwtKey))
         };
     });
 
 builder.Services.AddAuthorization();
+
+var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>()
+    ?? Array.Empty<string>();
+corsOrigins = corsOrigins
+    .Where(o => !string.IsNullOrWhiteSpace(o))
+    .Select(o => o.Trim())
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
+if (corsOrigins.Length == 0)
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        corsOrigins = ["http://localhost:5173", "http://localhost:5177"];
+    }
+    else
+    {
+        throw new InvalidOperationException(
+            "Missing configuration 'Cors:Origins'. Set at least one frontend origin " +
+            "with Cors__Origins__0 (production). See Documentation/Configuration.md.");
+    }
+}
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("Frontend", policy => 
+    options.AddPolicy("Frontend", policy =>
     {
         policy
-            .WithOrigins(
-                "http://localhost:5173",
-                "http://localhost:5177"
-            )
+            .WithOrigins(corsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("login", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -184,6 +224,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseGlobalException();

@@ -27,7 +27,8 @@ if (-not (Test-Path $sqlFile)) {
     throw "Missing $sqlFile"
 }
 
-sqlcmd -S $SqlServer -E -d $TargetDatabase -b -i $sqlFile
+# -x disables sqlcmd %variable% substitution so RAISERROR messages are not rewritten.
+sqlcmd -S $SqlServer -E -d $TargetDatabase -b -x -i $sqlFile
 if ($LASTEXITCODE -ne 0) {
     throw "Reset failed (sqlcmd exit $LASTEXITCODE). Transaction should have rolled back."
 }

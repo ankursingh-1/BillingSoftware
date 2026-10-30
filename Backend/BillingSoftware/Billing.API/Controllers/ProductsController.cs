@@ -88,6 +88,20 @@ public class ProductsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Exact SKU or barcode match for POS scan.</summary>
+    [HttpGet("scan")]
+    public async Task<IActionResult> Scan([FromQuery] string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return BadRequest("Scan a barcode or SKU.");
+
+        var product = await _service.GetByCodeAsync(code);
+        if (product == null)
+            return NotFound(new { message = $"No product matches '{code.Trim()}'." });
+
+        return Ok(product);
+    }
+
     [HttpGet("import/template")]
     public async Task<IActionResult> ImportTemplate()
     {

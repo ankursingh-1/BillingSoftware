@@ -14,6 +14,8 @@ import { getApiErrorMessage } from "../../utils/apiError";
 import type {
     ProductImportPreview,
     ProductImportResult,
+    ProductImportRow,
+    ProductImportStatus,
 } from "../../interfaces/product/product";
 
 type Step = "upload" | "preview" | "done";
@@ -22,6 +24,13 @@ interface ProductImportModalProps {
     onClose: () => void;
     onImported: () => void;
 }
+
+const ERROR_STATUSES: ProductImportStatus[] = [
+    "Invalid",
+    "Duplicate",
+    "Conflict",
+    "Failed",
+];
 
 function ProductImportModal({ onClose, onImported }: ProductImportModalProps) {
     const inputRef = useRef<HTMLInputElement>(null);
@@ -113,16 +122,19 @@ function ProductImportModal({ onClose, onImported }: ProductImportModalProps) {
             setResult(data);
             setStep("done");
             onImported();
+            const applied = data.added + data.updated + data.stockIncreased;
             toast.success(
-                `${data.imported} product${data.imported === 1 ? "" : "s"} imported.`
+                data.replayed
+                    ? "This file was imported before. Stock was not added again."
+                    : `${applied} change${applied === 1 ? "" : "s"} applied.`
             );
         });
     };
 
+    const summary = result ?? preview;
     const flagged =
-        (result ?? preview)?.rows.filter(
-            (row) => row.status !== "Valid" && row.status !== "Imported"
-        ) ?? [];
+        summary?.rows.filter((row) => ERROR_STATUSES.includes(row.status)) ?? [];
+    const reviewRows = summary?.rows ?? [];
 
     return (
         <Modal
@@ -169,7 +181,7 @@ function ProductImportModal({ onClose, onImported }: ProductImportModalProps) {
                         >
                             {busy
                                 ? busyLabel
-                                : `Import ${preview?.valid ?? 0} product${
+                                : `Import ${preview?.valid ?? 0} row${
                                       preview?.valid === 1 ? "" : "s"
                                   }`}
                         </button>
@@ -179,9 +191,19 @@ function ProductImportModal({ onClose, onImported }: ProductImportModalProps) {
         >
             <ol className="small text-muted">
                 <li>Download the template and fill the Products sheet.</li>
-                <li>Upload the .xlsx file.</li>
-                <li>Review valid, duplicate and invalid rows.</li>
-                <li>Confirm. Valid rows are saved together (all or none).</li>
+                <li>
+                    An existing barcode or SKU is a match: that product is
+                    updated. Duplicate means the same product appears twice in
+                    this file, not that it already exists in the catalogue.
+                </li>
+                <li>
+                    Use <code>OpeningStock</code> as the desired on-hand for
+                    existing products. Only the difference is added. Equal
+                    quantities skip stock. Blank is not zero. Excel never
+                    reduces stock — use Inventory → Adjustments.
+                </li>
+                <li>Upload the .xlsx file and review the preview.</li>
+                <li>Confirm. Applicable rows are saved together (all or none).</li>
             </ol>
 
             <div className="d-flex flex-wrap gap-2 mb-3">
@@ -259,52 +281,119 @@ function ProductImportModal({ onClose, onImported }: ProductImportModalProps) {
                 </div>
             )}
 
-            {(preview || result) && (
+            {summary && (
                 <div className="mt-3">
                     <div className="row g-2 mb-3">
+                        <Summary label="Rows" value={summary.totalRows} />
                         <Summary
-                            label="Rows"
-                            value={(result ?? preview)!.totalRows}
-                        />
-                        <Summary
-                            label={result ? "Imported" : "Valid"}
-                            value={result ? result.imported : preview!.valid}
+                            label={result ? "Added" : "Will apply"}
+                            value={result ? result.added : summary.valid}
                             tone="success"
                         />
+                        {result && (
+                            <>
+                                <Summary
+                                    label="Updated"
+                                    value={result.updated}
+                                    tone="success"
+                                />
+                                <Summary
+                                    label="Stock increases"
+                                    value={result.stockIncreased}
+                                    tone="success"
+                                />
+                            </>
+                        )}
                         <Summary
-                            label="Duplicates skipped"
-                            value={(result ?? preview)!.duplicate}
+                            label="Unchanged"
+                            value={summary.unchanged ?? 0}
+                        />
+                        <Summary
+                            label="Duplicate rows in file"
+                            value={summary.duplicate}
+                            tone="warning"
+                        />
+                        <Summary
+                            label="Conflicts"
+                            value={summary.conflict ?? 0}
                             tone="warning"
                         />
                         <Summary
                             label="Invalid"
-                            value={(result ?? preview)!.invalid}
+                            value={summary.invalid}
                             tone="danger"
                         />
+                        {result && (
+                            <Summary
+                                label="Failed"
+                                value={
+                                    result.rows.filter((row) => row.status === "Failed")
+                                        .length
+                                }
+                                tone="danger"
+                            />
+                        )}
                     </div>
 
-                    <p className="small text-muted">{(result ?? preview)!.policy}</p>
+                    <p className="small text-muted">{summary.policy}</p>
 
                     {flagged.length > 0 && (
-                        <div className="table-responsive" style={{ maxHeight: 280 }}>
+                        <div className="alert alert-warning py-2">
+                            <div className="fw-semibold mb-1">
+                                {flagged.length} row
+                                {flagged.length === 1 ? "" : "s"} need review
+                            </div>
+                            <ul className="mb-0 small">
+                                {flagged.map((row) => (
+                                    <li key={row.excelRow}>
+                                        Row {row.excelRow}{" "}
+                                        {row.name || "—"} ({row.sku || "no SKU"}):{" "}
+                                        {row.error || displayStatus(row)}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {reviewRows.length > 0 && (
+                        <div className="table-responsive" style={{ maxHeight: 320 }}>
                             <table className="table table-sm align-middle mb-0">
                                 <thead>
                                     <tr>
                                         <th>Row</th>
                                         <th>Name</th>
                                         <th>SKU</th>
+                                        <th>On hand</th>
+                                        <th>Excel qty</th>
+                                        <th>Change</th>
+                                        <th>Action</th>
                                         <th>Status</th>
-                                        <th>Error</th>
+                                        <th>Detail</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {flagged.map((row) => (
-                                        <tr key={row.excelRow}>
+                                    {reviewRows.map((row) => (
+                                        <tr
+                                            key={row.excelRow}
+                                            className={
+                                                ERROR_STATUSES.includes(row.status)
+                                                    ? "table-warning"
+                                                    : undefined
+                                            }
+                                        >
                                             <td>{row.excelRow}</td>
                                             <td>{row.name || "—"}</td>
                                             <td>{row.sku || "—"}</td>
-                                            <td>{row.status}</td>
-                                            <td>{row.error}</td>
+                                            <td>{formatStock(row.currentStock)}</td>
+                                            <td>{excelQty(row)}</td>
+                                            <td>
+                                                {row.proposedStockChange
+                                                    ? `+${row.proposedStockChange}`
+                                                    : "—"}
+                                            </td>
+                                            <td>{row.action || row.fieldChanges || "—"}</td>
+                                            <td>{displayStatus(row)}</td>
+                                            <td>{row.error || "—"}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -314,23 +403,60 @@ function ProductImportModal({ onClose, onImported }: ProductImportModalProps) {
 
                     {step === "preview" && !preview?.canImport && (
                         <div className="alert alert-warning mt-3 mb-0">
-                            Nothing to import. Fix the rows above or skip the
-                            duplicates; existing products are never overwritten.
+                            Nothing to import. Unchanged rows are skipped, not
+                            errors. Fix the rows listed above, or there is no
+                            product/stock change in this file.
                         </div>
                     )}
 
                     {step === "done" && result && (
                         <div className="alert alert-success mt-3 mb-0">
-                            Imported {result.imported}. Skipped {result.skipped}{" "}
-                            (duplicates and invalid rows). Retrying the same
-                            file will skip SKUs that already exist, so stock is
-                            not added twice.
+                            {result.replayed
+                                ? "This exact file was imported before. The original result is shown; stock was not added twice."
+                                : `Added ${result.added}, updated ${result.updated}, stock increases ${result.stockIncreased}. Skipped ${result.skipped} (unchanged, duplicates, conflicts, invalid).`}
                         </div>
                     )}
                 </div>
             )}
         </Modal>
     );
+}
+
+function displayStatus(row: ProductImportRow): string {
+    switch (row.status) {
+        case "Valid":
+            return "Ready to import";
+        case "Unchanged":
+            return "Unchanged / skipped";
+        case "Duplicate":
+            return "Duplicate row in file";
+        case "Conflict":
+            return "Conflict / needs review";
+        case "StockIncreased":
+            return "Stock increased";
+        case "Added":
+            return "Added";
+        case "Updated":
+            return "Updated";
+        default:
+            return row.status;
+    }
+}
+
+function excelQty(row: ProductImportRow): string {
+    if (row.addStockQuantity != null) {
+        return `add ${row.addStockQuantity}`;
+    }
+
+    if (row.stockQuantity != null) {
+        return String(row.stockQuantity);
+    }
+
+    return "blank";
+}
+
+function formatStock(value: number | null | undefined): string {
+    return value == null ? "—" : String(value);
 }
 
 function Summary({

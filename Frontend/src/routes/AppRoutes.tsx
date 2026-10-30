@@ -1,3 +1,5 @@
+import { lazy, Suspense } from "react";
+import type { ComponentType, LazyExoticComponent } from "react";
 import {
     BrowserRouter,
     Navigate,
@@ -6,27 +8,7 @@ import {
 } from "react-router-dom";
 
 import MainLayout from "../layouts/MainLayout";
-import LoginPage from "../pages/auth/LoginPage";
-import DashboardPage from "../pages/dashboard/DashboardPage";
-import CompanySettingsPage from "../pages/settings/CompanySettingsPage";
-import ProductsPage from "../pages/products/ProductsPage";
-import ProductFormPage from "../pages/products/ProductFormPage";
-import CategoriesPage from "../pages/categories/CategoriesPage";
-import CustomersPage from "../pages/customers/CustomersPage";
-import SuppliersPage from "../pages/suppliers/SuppliersPage";
-import SalesPage from "../pages/sales/SalesPage";
-import NewSalePage from "../pages/sales/NewSalePage";
-import SaleDetailPage from "../pages/sales/SaleDetailPage";
-import PaymentReceiptPage from "../pages/sales/PaymentReceiptPage";
-import PurchasesPage from "../pages/purchases/PurchasesPage";
-import NewPurchasePage from "../pages/purchases/NewPurchasePage";
-import PurchaseDetailPage from "../pages/purchases/PurchaseDetailPage";
-import InventoryPage from "../pages/inventory/InventoryPage";
-import ReturnsPage from "../pages/returns/ReturnsPage";
-import ReturnDetailPage from "../pages/returns/ReturnDetailPage";
-import ExpensesPage from "../pages/expenses/ExpensesPage";
-import ReportsPage from "../pages/reports/ReportsPage";
-import CatalogPage from "../pages/catalog/CatalogPage";
+import { isStoredTokenExpired } from "../utils/session";
 
 import AdminRoute from "./AdminRoute";
 import ProtectedRoute from "./ProtectedRoute";
@@ -34,31 +16,80 @@ import ProtectedRoute from "./ProtectedRoute";
 function HomeRedirect() {
     const token = localStorage.getItem("token");
 
-    return token ? (
-        <Navigate to="/dashboard" replace />
-    ) : (
-        <Navigate to="/login" replace />
+    if (!token || isStoredTokenExpired()) {
+        if (token) {
+            localStorage.removeItem("token");
+        }
+
+        return <Navigate to="/login" replace />;
+    }
+
+    return <Navigate to="/dashboard" replace />;
+}
+
+function PageFallback() {
+    return (
+        <div className="state-block">
+            <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Loading...</span>
+            </div>
+        </div>
     );
 }
+
+function lazyPage<P extends object>(
+    factory: () => Promise<{ default: ComponentType<P> }>
+) {
+    const Page: LazyExoticComponent<ComponentType<P>> = lazy(factory);
+
+    return function LazyRoute(props: P) {
+        return (
+            <Suspense fallback={<PageFallback />}>
+                <Page {...props} />
+            </Suspense>
+        );
+    };
+}
+
+const LoginPage = lazyPage(() => import("../pages/auth/LoginPage"));
+const DashboardPage = lazyPage(() => import("../pages/dashboard/DashboardPage"));
+const CompanySettingsPage = lazyPage(() => import("../pages/settings/CompanySettingsPage"));
+const ProductsPage = lazyPage(() => import("../pages/products/ProductsPage"));
+const ProductFormPage = lazyPage(() => import("../pages/products/ProductFormPage"));
+const CategoriesPage = lazyPage(() => import("../pages/categories/CategoriesPage"));
+const CustomersPage = lazyPage(() => import("../pages/customers/CustomersPage"));
+const SuppliersPage = lazyPage(() => import("../pages/suppliers/SuppliersPage"));
+const SalesPage = lazyPage(() => import("../pages/sales/SalesPage"));
+const NewSalePage = lazyPage(() => import("../pages/sales/NewSalePage"));
+const SaleDetailPage = lazyPage(() => import("../pages/sales/SaleDetailPage"));
+const PaymentReceiptPage = lazyPage(() => import("../pages/sales/PaymentReceiptPage"));
+const PurchasesPage = lazyPage(() => import("../pages/purchases/PurchasesPage"));
+const NewPurchasePage = lazyPage(() => import("../pages/purchases/NewPurchasePage"));
+const PurchaseDetailPage = lazyPage(() => import("../pages/purchases/PurchaseDetailPage"));
+const InventoryPage = lazyPage(() => import("../pages/inventory/InventoryPage"));
+const ReturnsPage = lazyPage(() => import("../pages/returns/ReturnsPage"));
+const ReturnDetailPage = lazyPage(() => import("../pages/returns/ReturnDetailPage"));
+const ExpensesPage = lazyPage(() => import("../pages/expenses/ExpensesPage"));
+const ReportsPage = lazyPage(() => import("../pages/reports/ReportsPage"));
+const CatalogPage = lazyPage(() => import("../pages/catalog/CatalogPage"));
+const WarrantiesPage = lazyPage(() => import("../pages/warranties/WarrantiesPage"));
+const WarrantyDetailPage = lazyPage(() => import("../pages/warranties/WarrantyDetailPage"));
 
 export default function AppRoutes() {
     return (
         <BrowserRouter>
             <Routes>
 
-                {/* Root */}
                 <Route
                     path="/"
                     element={<HomeRedirect />}
                 />
 
-                {/* Login */}
                 <Route
                     path="/login"
                     element={<LoginPage />}
                 />
 
-                {/* Protected Application (shared layout, no path of its own) */}
                 <Route
                     element={
                         <ProtectedRoute>
@@ -66,13 +97,11 @@ export default function AppRoutes() {
                         </ProtectedRoute>
                     }
                 >
-                    {/* Dashboard */}
                     <Route
                         path="/dashboard"
                         element={<DashboardPage />}
                     />
 
-                    {/* Company Settings */}
                     <Route
                         path="/dashboard/settings"
                         element={
@@ -82,7 +111,6 @@ export default function AppRoutes() {
                         }
                     />
 
-                    {/* Products */}
                     <Route
                         path="/products"
                         element={<ProductsPage />}
@@ -96,7 +124,6 @@ export default function AppRoutes() {
                         element={<ProductFormPage />}
                     />
 
-                    {/* Categories */}
                     <Route
                         path="/categories"
                         element={<CategoriesPage />}
@@ -110,19 +137,16 @@ export default function AppRoutes() {
                         }
                     />
 
-                    {/* Customers */}
                     <Route
                         path="/customers"
                         element={<CustomersPage />}
                     />
 
-                    {/* Suppliers */}
                     <Route
                         path="/suppliers"
                         element={<SuppliersPage />}
                     />
 
-                    {/* Sales */}
                     <Route
                         path="/sales"
                         element={<SalesPage />}
@@ -139,8 +163,15 @@ export default function AppRoutes() {
                         path="/sales/:id/payments/:paymentId/receipt"
                         element={<PaymentReceiptPage />}
                     />
+                    <Route
+                        path="/warranties"
+                        element={<WarrantiesPage />}
+                    />
+                    <Route
+                        path="/warranties/:id"
+                        element={<WarrantyDetailPage />}
+                    />
 
-                    {/* Purchases (Admin) */}
                     <Route
                         path="/purchases"
                         element={
@@ -166,13 +197,11 @@ export default function AppRoutes() {
                         }
                     />
 
-                    {/* Inventory */}
                     <Route
                         path="/inventory"
                         element={<InventoryPage />}
                     />
 
-                    {/* Returns */}
                     <Route
                         path="/expenses"
                         element={
@@ -207,7 +236,6 @@ export default function AppRoutes() {
                     />
                 </Route>
 
-                {/* Unknown URL */}
                 <Route
                     path="*"
                     element={<HomeRedirect />}

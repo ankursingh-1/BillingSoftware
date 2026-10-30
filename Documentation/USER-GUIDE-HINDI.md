@@ -8,12 +8,12 @@ Demo records ke naam `DEMO` se shuru hote hain. Asli shop data ko demo se mix ma
 
 ## 1. Login
 
-1. Browser mein app kholo (local: `http://localhost:5173`).
+1. Browser mein app kholo. Verification copy: `http://localhost:5177` (API `http://localhost:7190`, database `BillingSoftware_Verify`). Visual Studio development: `http://localhost:5173` (API `https://localhost:7179`).
 2. **Email** aur **Password** bharo.
 3. **Login** dabao (Enter bhi chalega).
 4. Dashboard khulega. Header mein aapka email aur role dikhega.
 
-Galat password par “Invalid Email or Password” aayega. Session khatam hone par wapas login page.
+Galat password par “Invalid Email or Password” aayega. Bahut tez galat tries par server 429 de sakta hai (1 minute mein 10 login). Session khatam hone par wapas login page.
 
 **Logout:** sidebar ke neeche **Logout**.
 
@@ -24,7 +24,13 @@ Galat password par “Invalid Email or Password” aayega. Session khatam hone p
 ## 2. Company settings (sirf Admin)
 
 1. Sidebar → **Settings**.
-2. Company name, address, phone, email, GSTIN, State, invoice prefix, print format, thermal 80/58 mm, bank details, logo.
+2. Company name, address, phone, email, GSTIN, State, invoice prefix, **Shop type** (General retail / Electronics / Grocery), print format, thermal 80/58 mm, bank details, logo.
+
+Shop type sirf counter default badalta hai — alag app nahi:
+
+- **Grocery:** New Sale par Walk-in auto select; warranty prompt band.
+- **Electronics:** jinke product par default warranty hai, sale par register option on.
+- **General retail:** dono tarike chalenge.
 3. GSTIN ke pehle 2 digit state se match hone chahiye, warna save block ho jayega. App khud GSTIN nahi badlegi.
 4. **Save company settings**.
 
@@ -50,8 +56,10 @@ Logo: PNG/JPEG, max 2 MB. Production mein `Storage:Root` persistent folder hona 
 
 1. **Products** → **Add Product**.
 2. Name, SKU (unique), Category/Brand/Unit/Tax, HSN (optional), Purchase price, Selling price.
-3. **Current stock** yahan se nahi badlega — opening stock create par, baad mein purchase / adjustment se.
-4. **Save**.
+3. Electronics ke liye: **Barcode** (optional, unique), **Default warranty** (number + Days/Months/Years), **Serial required** (tick agar har unit ka serial chahiye).
+4. Default warranty sirf **nayi sale** par default hai. Baad mein product default badalne se purani invoice ki warranty dates nahi badlengi.
+5. **Current stock** yahan se nahi badlega — opening stock create par, baad mein purchase / adjustment se.
+6. **Save**.
 
 Check: list mein naam/SKU. Edit par purani values load honi chahiye.
 
@@ -62,13 +70,13 @@ Check: list mein naam/SKU. Edit par purani values load honi chahiye.
 1. **Products** → **Import Excel**.
 2. **Download template**.
 3. **Products** sheet bharo (Sample sheet sirf example hai — import nahi hota).
-4. Columns: ProductName*, SKU*, Category, Brand, Unit, Tax, HSN, PurchasePrice*, SellingPrice*, OpeningStock.
+4. Columns: ProductName*, SKU*, Category, Brand, Unit, Tax, HSN, PurchasePrice*, SellingPrice*, OpeningStock / StockQuantity (set stock), AddStockQuantity (add delivery), ProductId, ReceiptId, Barcode, warranty.
 5. File choose karo (.xlsx, max 5 MB / 2000 rows) → **Check file**.
-6. Preview: valid / duplicate / error rows.
-7. **Confirm import**. Duplicate SKU skip; existing product overwrite nahi.
-8. Opening stock stock-ledger se jata hai.
+6. Preview: new / update / stock change / unchanged / duplicate / conflict / error. Blank stock zero nahi hai.
+7. **Confirm import**. Jo rows apply honge woh ek transaction mein save hote hain.
+8. Stock ledger se jata hai. Excel stock kam nahi karta — uske liye Inventory → Adjustments.
 
-Dobara same file: pehle wale SKU skip, stock double nahi.
+Dobara same file: pehle wala result wapas, stock double nahi.
 
 ---
 
@@ -116,7 +124,7 @@ Confirmation: amount received, remaining ₹0, status **Paid**, **Print receipt*
 
 ## 10. Partial payment
 
-Amount outstanding se kam likho (jaise 500). Status **Partial**, remaining balance dikhega.
+Amount outstanding se kam likho (jaise 500). Status **Partially Paid**, remaining balance dikhega. Invoice refresh / dubara kholo — status server se aata hai, screen par purana label nahi rehta.
 
 ---
 
@@ -190,9 +198,13 @@ Gross profit = sale-line **CostPrice**, kabhi sales minus purchases nahi. Cost m
 
 ## 18. Dashboard figures
 
-Cards asli API se aati hain (aaj ki sales, purchases, customers, low/out of stock). Click karke module khulta hai.
+Cards asli API se aati hain (aaj ki sales, purchases, customers, low/out of stock, outstanding collections). Click karke module khulta hai.
 
 Staff ko purchase links nahi milte. Profit incomplete cost par **Unavailable**.
+
+Agar poora dashboard “Unable to load dashboard data” dikhaye: API chal rahi hai ya nahi check karo; browser Network tab mein `/api/Dashboard/summary` 200 hona chahiye. Warranty endpoint fail ho to baaki cards phir bhi load honi chahiye, aur expiring warranty card **Unavailable** dikhega — yeh empty shop nahi hai.
+
+`https://localhost:7179` live `BillingSoftwareDb` par warranty migration ke bina chalega to products/warranty columns missing ho sakte hain. Verification ke liye `7190` / `BillingSoftware_Verify` use karo.
 
 ---
 
@@ -222,3 +234,36 @@ Reset: `Documentation/DEMO-RESET-PLAN.md` — pehle approval.
 | Token expire ke baad kaam | Wapas login |
 
 Admin-only: Settings, Purchases, Expenses, Reports, Catalog writes, stock adjust, payment void, demo seed.
+
+---
+
+## 21. Electronics product + warranty (Hinglish)
+
+1. **Products → Add Product.** Laptop/fridge/TV/phone ka naam, SKU, price, tax.
+2. **Default warranty** bharo — example: `1` + **Years**, ya `6` + **Months**. Har product alag ho sakta hai; app mein koi hardcoded 1-year rule nahi hai.
+3. Serial chahiye ho to **Serial required** tick.
+4. **Sales → New sale.** Customer search (mobile). Walk-in par warranty register nahi hota — asli mobile wala customer chuno.
+5. Product add. **Register warranty** tick. Duration default se aata hai; sale par override kar sakte ho (Days/Months/Years).
+6. Serial box mein ek unit = ek serial. Qty 2 ho to do serial.
+7. Payment + Save. Invoice par WRN number, duration, start, end print hote hain.
+8. Baad mein dhoondhna: sidebar **Warranties** — warranty number, invoice, mobile, naam, product, serial.
+
+## 22. Warranty claim aur replacement
+
+1. **Warranties** → record kholo.
+2. **Eligible by date** sirf stored start/end se aata hai. Replacement automatic promise nahi hai — inspect karo, notes likho.
+3. Problem likho → **Submit claim** (Submitted).
+4. Buttons se: Under inspection → Approved / Rejected. Reason required.
+5. Approved ke baad **Repaired**, **Replacement issued**, ya **Closed**.
+6. Replacement: replacement SKU (blank = original product) + serial. Stock **WarrantyReplacement** ledger se nikalta hai. Paid sale nahi banti. Original invoice nahi badalti.
+7. Duplicate replacement same claim par block. Expired warranty searchable rehti hai, naya claim date ke bahar nahi.
+
+## 23. Grocery / supermarket billing
+
+1. Settings mein shop type **Grocery** (optional). New Sale par Walk-in auto.
+2. Barcode box mein scan / SKU type + Enter. Same barcode dubara scan = quantity +1, stock tak.
+3. Customer details grocery par zaroori nahi (Walk-in). Warranty tick hata ke rakho.
+4. Quantity **poora number** hai (packet/piece). 1.5 kg decimal is schema mein nahi — 500 g pack ko 1 piece banao, ya alag packed SKU.
+5. Payment Full / partial / unpaid. Receipt print pehle jaisa.
+
+Email/address customer par optional; shop ne require nahi kiya to chhod sakte ho. Warranty ke liye mobile zaroori hai.

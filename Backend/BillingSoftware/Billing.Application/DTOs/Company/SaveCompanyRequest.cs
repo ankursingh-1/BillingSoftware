@@ -88,4 +88,8 @@ public class SaveCompanyRequest
     public bool ShowFooter { get; set; } = true;
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>GeneralRetail, Electronics or Grocery. Changes counter defaults only.</summary>
+    [StringLength(30)]
+    public string ShopType { get; set; } = "GeneralRetail";
 }

@@ -25,11 +25,14 @@ public class SaleItem : BaseEntity
     public decimal? TaxAmount { get; set; }
 
     /// <summary>
-    /// Product cost price at the time of sale (catalogue purchase price).
-    /// Null when it was not known; gross profit is then reported as incomplete.
+    /// Unit cost snapshotted at sale (last recorded purchase/opening cost).
+    /// Null when no cost had been recorded; never treat as zero.
     /// </summary>
     public decimal? CostPrice { get; set; }
 
     public Sale Sale { get; set; } = null!;
     public Product Product { get; set; } = null!;
+
+    public ICollection<Warranty> Warranties { get; set; }
+        = new List<Warranty>();
 }

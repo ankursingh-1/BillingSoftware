@@ -23,8 +23,19 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(x => x.SKU)
                .HasMaxLength(200);
 
+        builder.Property(x => x.Barcode)
+               .HasMaxLength(80);
+
+        builder.HasIndex(x => x.Barcode)
+               .IsUnique()
+               .HasFilter("[Barcode] IS NOT NULL AND [IsDeleted] = 0");
+
         builder.Property(x => x.HsnCode)
                .HasMaxLength(8);
+
+        builder.Property(x => x.WarrantyDurationUnit)
+               .HasConversion<string>()
+               .HasMaxLength(20);
 
         builder.Property(x => x.PurchasePrice)
                .HasPrecision(18, 2);
